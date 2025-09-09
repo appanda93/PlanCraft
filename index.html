@@ -538,30 +538,99 @@
 
   function persist(){ localStorage.setItem('plancraft', JSON.stringify(state)); }
 
-  // Draft Plan generator
+  // Draft Plan generator (GOAL-AWARE HEURISTICS — no AI)
   function generateDraftTasks(p){
-    const days = Math.max(20, daysBetween(p.start, p.end));
-    const bucket = Math.floor(days/5);
-    const assignee = p.stakeholders[0]||'TBD';
-    const mk = (title, offset, len)=>({
-      id:'t_'+Math.random().toString(36).slice(2),
-      title, assignee,
-      start: fmt(new Date(new Date(p.start).getTime()+offset*86400000)),
-      end: fmt(new Date(new Date(p.start).getTime()+(offset+len)*86400000)),
-      pct: 0
-    });
-    const tasks=[
-      mk('Initiation & Charter', 0, bucket),
-      mk('Requirements & Scope Finalization', bucket, bucket),
-      mk('Design & Solution Blueprint', bucket*2, bucket),
-      mk('Build & Configuration', bucket*3, Math.ceil(bucket*1.2)),
-      mk('Testing & UAT', bucket*4, Math.ceil(bucket*0.8)),
-      mk('Cutover Planning', bucket*4, Math.ceil(bucket*0.5)),
-      mk('Go-Live & Hypercare', Math.max(bucket*5-5, bucket*4), 5)
+    const totalDays = Math.max(20, daysBetween(p.start, p.end));
+    const goalText = (p.scope || p.name || '').toLowerCase();
+    const defaultAssignee = p.stakeholders?.[0] || p.pm || 'TBD';
+
+    // Backbone milestones (high-signal, outcome-based)
+    let milestones = [
+      'Project Kickoff & Charter',
+      'Requirements & Use Cases',
+      'Solution Design',
     ];
-    const scope = (p.scope||'').toLowerCase();
-    if(scope.includes('integration')) tasks.splice(3,0, mk('Integration Mapping & Interfaces', bucket*2, Math.ceil(bucket*0.8)));
-    if(scope.includes('vendor')) tasks.splice(2,0, mk('Vendor Onboarding & SOW', bucket, Math.ceil(bucket*0.8)));
+
+    // Goal-aware inserts (matched by keywords in Goal/Scope)
+    if (/(integrat|api|interface|webhook|sso)/.test(goalText)) {
+      milestones.push('Integration Mapping & API Design');
+      milestones.push('Interface Build & Data Contracts');
+      milestones.push('Integration Validation (End-to-End)');
+    }
+    if (/(migrat|data|etl|warehouse|lake|schema)/.test(goalText)) {
+      milestones.push('Data Profiling & Mapping');
+      milestones.push('Migration Plan & Cutover Strategy');
+      milestones.push('Trial Migration & Validation');
+    }
+    if (/(security|privacy|hipaa|gdpr|sox|pci|iso|compliance)/.test(goalText)) {
+      milestones.push('Security & Privacy Review');
+      milestones.push('Controls & Compliance Readiness');
+    }
+    if (/(ml|ai|model|analytics|dashboard|kpi|bi)/.test(goalText)) {
+      milestones.push('Analytics/KPI Definition');
+      milestones.push('Reporting & Dashboard Build');
+    }
+    if (/(mobile|app|ui|ux|accessibility|website)/.test(goalText)) {
+      milestones.push('UI Build & Accessibility Pass');
+      milestones.push('UAT & Bug Bash');
+    }
+    if (/(cloud|infra|terraform|kubernetes|network|iam|devops)/.test(goalText)) {
+      milestones.push('Environment Provisioning');
+      milestones.push('Performance & Reliability Testing');
+    }
+    if (/(vendor|sow|contract|procure)/.test(goalText)) {
+      milestones.push('Vendor Selection & SOW');
+    }
+    if (/(change|training|enablement|rollout|adoption|communication)/.test(goalText)) {
+      milestones.push('Change Management & Communications');
+      milestones.push('Training & Enablement');
+    }
+
+    // Closeout backbone
+    milestones.push('Build & Configuration');
+    milestones.push('Testing & UAT');
+    milestones.push('Cutover Planning');
+    milestones.push('Go-Live & Hypercare');
+
+    // De-dupe while preserving order
+    const seen = new Set();
+    milestones = milestones.filter(t => (seen.has(t) ? false : (seen.add(t), true)));
+
+    // Keep the plan concise
+    if (milestones.length > 12) milestones = milestones.slice(0, 12);
+
+    // Evenly distribute durations across the project window
+    const N = milestones.length;
+    const base = Math.max(1, Math.floor(totalDays / N));
+    const remainder = Math.max(0, totalDays - base * N);
+    const durations = Array.from({ length: N }, (_, i) => base + (i < remainder ? 1 : 0));
+
+    // Schedule sequentially
+    let cursor = new Date(p.start);
+    const tasks = milestones.map((title, i) => {
+      const start = new Date(cursor);
+      const end = new Date(start);
+      end.setDate(end.getDate() + Math.max(0, durations[i] - 1));
+      // next cursor is the day after the end
+      const next = new Date(end); next.setDate(next.getDate() + 1);
+      cursor = next;
+
+      return {
+        id: 't_' + Math.random().toString(36).slice(2),
+        title,
+        assignee: defaultAssignee,
+        start: fmt(start),
+        end: fmt(end),
+        pct: 0
+      };
+    });
+
+    // Clamp any overrun to the project end date
+    const projectEnd = new Date(p.end);
+    tasks.forEach(t => {
+      if (new Date(t.end) > projectEnd) t.end = fmt(projectEnd);
+    });
+
     return tasks;
   }
 
