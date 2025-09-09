@@ -71,7 +71,7 @@
     td{background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); padding:10px; border-radius:8px; vertical-align:top}
     /* Gantt */
     .gantt{position:relative; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:16px; overflow:auto}
-    .bar{position:relative; height:28px; border-radius:8px; background:linear-gradient(90deg, var(--accent-2), var(--accent)); display:flex; align-items:center; padding-left:8px; font-size:12px; color:#0e1116}
+    .bar{position:relative; height:28px; border-radius:8px; background:linear-gradient(90deg, var(--accent-2), var(--accent)); display:flex; align-items:center; padding-left:8px; font-size:12px; color:#0e1116; overflow:hidden}
     .bar + .bar{margin-top:8px}
     .legend{display:flex; gap:10px; font-size:12px; color:var(--muted)}
     .rag{display:inline-flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.12)}
@@ -88,6 +88,20 @@
     .col{flex:1}
     .hidden{display:none}
     @media (max-width: 900px){ .app{grid-template-columns: 1fr; grid-template-areas: "header" "main"} aside{display:none} }
+
+    /* --- Gantt Upgrades --- */
+    .gantt { position:relative; padding-top:42px; } /* room for axis labels */
+    .gantt-axis { position:absolute; left:16px; right:16px; top:8px; height:22px; font-size:11px; color:var(--muted); pointer-events:none; }
+    .gantt-tick-label { position:absolute; transform:translateX(-50%); white-space:nowrap; }
+    .gantt-tick-line { position:absolute; top:36px; bottom:12px; width:1px; background:rgba(255,255,255,.08); }
+    .gantt-today { position:absolute; top:16px; bottom:16px; width:2px; background:var(--bad); opacity:.95; }
+    .bar .bar-progress {
+      position:absolute; left:0; top:0; bottom:0;
+      background:rgba(0,0,0,.15);
+      border-radius:8px;
+      pointer-events:none;
+    }
+    .bar:hover { outline:1px dashed rgba(255,255,255,.2); }
   </style>
 </head>
 <body>
@@ -363,6 +377,23 @@
   const daysBetween=(a,b)=> Math.max(1, Math.round((new Date(b)-new Date(a))/86400000));
   const clamp=(n,min,max)=>Math.min(Math.max(n,min),max);
   const esc = s => (s||'').replace(/[&<>\"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;' }[c]));
+  // NEW: small helpers for the upgraded Gantt
+  function fmtMD(d){ const m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const dt=new Date(d); return `${m[dt.getMonth()]} ${dt.getDate()}`; }
+  function makeTicks(minDate, maxDate, target=8){
+    const min = new Date(minDate), max = new Date(maxDate);
+    const days = Math.max(1, Math.round((max-min)/86400000));
+    let step = Math.max(1, Math.round(days/target));
+    if      (step >= 28) step = 30;
+    else if (step >= 14) step = 14;
+    else if (step >= 7 ) step = 7;
+    else if (step >= 3 ) step = 3;
+    else                 step = 1;
+    const ticks = [];
+    const t = new Date(min);
+    if(step===7){ t.setDate(t.getDate() - ((t.getDay()+6)%7)); } // align to Monday
+    while(t <= max){ ticks.push(new Date(t)); t.setDate(t.getDate()+step); }
+    return ticks;
+  }
 
   // Navigation
   qsa('[data-view]').forEach(item=> item.addEventListener('click',()=> showView(item.dataset.view)) );
@@ -524,7 +555,7 @@
       stakeholders: qs('#pStake').value.split(',').map(s=>s.trim()).filter(Boolean),
       archived: false,
       tasks: [], risks:[], issues:[], decisions:[],
-      notes: []                 /* <-- new */
+      notes: []
     };
     return p;
   }
@@ -538,99 +569,30 @@
 
   function persist(){ localStorage.setItem('plancraft', JSON.stringify(state)); }
 
-  // Draft Plan generator (GOAL-AWARE HEURISTICS — no AI)
+  // Draft Plan generator
   function generateDraftTasks(p){
-    const totalDays = Math.max(20, daysBetween(p.start, p.end));
-    const goalText = (p.scope || p.name || '').toLowerCase();
-    const defaultAssignee = p.stakeholders?.[0] || p.pm || 'TBD';
-
-    // Backbone milestones (high-signal, outcome-based)
-    let milestones = [
-      'Project Kickoff & Charter',
-      'Requirements & Use Cases',
-      'Solution Design',
+    const days = Math.max(20, daysBetween(p.start, p.end));
+    const bucket = Math.floor(days/5);
+    const assignee = p.stakeholders[0]||'TBD';
+    const mk = (title, offset, len)=>({
+      id:'t_'+Math.random().toString(36).slice(2),
+      title, assignee,
+      start: fmt(new Date(new Date(p.start).getTime()+offset*86400000)),
+      end: fmt(new Date(new Date(p.start).getTime()+(offset+len)*86400000)),
+      pct: 0
+    });
+    const tasks=[
+      mk('Initiation & Charter', 0, bucket),
+      mk('Requirements & Scope Finalization', bucket, bucket),
+      mk('Design & Solution Blueprint', bucket*2, bucket),
+      mk('Build & Configuration', bucket*3, Math.ceil(bucket*1.2)),
+      mk('Testing & UAT', bucket*4, Math.ceil(bucket*0.8)),
+      mk('Cutover Planning', bucket*4, Math.ceil(bucket*0.5)),
+      mk('Go-Live & Hypercare', Math.max(bucket*5-5, bucket*4), 5)
     ];
-
-    // Goal-aware inserts (matched by keywords in Goal/Scope)
-    if (/(integrat|api|interface|webhook|sso)/.test(goalText)) {
-      milestones.push('Integration Mapping & API Design');
-      milestones.push('Interface Build & Data Contracts');
-      milestones.push('Integration Validation (End-to-End)');
-    }
-    if (/(migrat|data|etl|warehouse|lake|schema)/.test(goalText)) {
-      milestones.push('Data Profiling & Mapping');
-      milestones.push('Migration Plan & Cutover Strategy');
-      milestones.push('Trial Migration & Validation');
-    }
-    if (/(security|privacy|hipaa|gdpr|sox|pci|iso|compliance)/.test(goalText)) {
-      milestones.push('Security & Privacy Review');
-      milestones.push('Controls & Compliance Readiness');
-    }
-    if (/(ml|ai|model|analytics|dashboard|kpi|bi)/.test(goalText)) {
-      milestones.push('Analytics/KPI Definition');
-      milestones.push('Reporting & Dashboard Build');
-    }
-    if (/(mobile|app|ui|ux|accessibility|website)/.test(goalText)) {
-      milestones.push('UI Build & Accessibility Pass');
-      milestones.push('UAT & Bug Bash');
-    }
-    if (/(cloud|infra|terraform|kubernetes|network|iam|devops)/.test(goalText)) {
-      milestones.push('Environment Provisioning');
-      milestones.push('Performance & Reliability Testing');
-    }
-    if (/(vendor|sow|contract|procure)/.test(goalText)) {
-      milestones.push('Vendor Selection & SOW');
-    }
-    if (/(change|training|enablement|rollout|adoption|communication)/.test(goalText)) {
-      milestones.push('Change Management & Communications');
-      milestones.push('Training & Enablement');
-    }
-
-    // Closeout backbone
-    milestones.push('Build & Configuration');
-    milestones.push('Testing & UAT');
-    milestones.push('Cutover Planning');
-    milestones.push('Go-Live & Hypercare');
-
-    // De-dupe while preserving order
-    const seen = new Set();
-    milestones = milestones.filter(t => (seen.has(t) ? false : (seen.add(t), true)));
-
-    // Keep the plan concise
-    if (milestones.length > 12) milestones = milestones.slice(0, 12);
-
-    // Evenly distribute durations across the project window
-    const N = milestones.length;
-    const base = Math.max(1, Math.floor(totalDays / N));
-    const remainder = Math.max(0, totalDays - base * N);
-    const durations = Array.from({ length: N }, (_, i) => base + (i < remainder ? 1 : 0));
-
-    // Schedule sequentially
-    let cursor = new Date(p.start);
-    const tasks = milestones.map((title, i) => {
-      const start = new Date(cursor);
-      const end = new Date(start);
-      end.setDate(end.getDate() + Math.max(0, durations[i] - 1));
-      // next cursor is the day after the end
-      const next = new Date(end); next.setDate(next.getDate() + 1);
-      cursor = next;
-
-      return {
-        id: 't_' + Math.random().toString(36).slice(2),
-        title,
-        assignee: defaultAssignee,
-        start: fmt(start),
-        end: fmt(end),
-        pct: 0
-      };
-    });
-
-    // Clamp any overrun to the project end date
-    const projectEnd = new Date(p.end);
-    tasks.forEach(t => {
-      if (new Date(t.end) > projectEnd) t.end = fmt(projectEnd);
-    });
-
+    const scope = (p.scope||'').toLowerCase();
+    if(scope.includes('integration')) tasks.splice(3,0, mk('Integration Mapping & Interfaces', bucket*2, Math.ceil(bucket*0.8)));
+    if(scope.includes('vendor')) tasks.splice(2,0, mk('Vendor Onboarding & SOW', bucket, Math.ceil(bucket*0.8)));
     return tasks;
   }
 
@@ -691,7 +653,6 @@
       nT.appendChild(tr);
       return;
     }
-    // Sort by date desc for visibility
     const sorted = [...p.notes].sort((a,b)=> new Date(b.date) - new Date(a.date));
     sorted.forEach(n=>{
       const tr = document.createElement('tr');
@@ -716,13 +677,45 @@
     }).filter(Boolean);
   }
 
+  // NEW drawGantt with axis, grid, today marker, and progress overlay
   function drawGantt(p){
     const box = qs('#gantt');
     box.innerHTML='';
+
     if(!p || !p.tasks || p.tasks.length===0) { box.textContent='No tasks.'; return; }
-    const min = new Date(Math.min(...p.tasks.map(t=>+new Date(t.start))));
-    const max = new Date(Math.max(...p.tasks.map(t=>+new Date(t.end))));
+
+    const min = new Date(Math.min(...p.tasks.map(t=>+new Date(t.start)), +new Date(p.start)));
+    const max = new Date(Math.max(...p.tasks.map(t=>+new Date(t.end)),   +new Date(p.end)));
     const total = Math.max(1, (max-min)/86400000);
+
+    // Axis + grid
+    const axis = document.createElement('div'); axis.className = 'gantt-axis';
+    const ticks = makeTicks(min, max, 8);
+    ticks.forEach(dt=>{
+      const left = ((dt - min)/86400000)/total*100;
+      const lab = document.createElement('div');
+      lab.className = 'gantt-tick-label';
+      lab.style.left = `calc(${left}% + 16px)`;
+      lab.textContent = fmtMD(dt);
+      axis.appendChild(lab);
+      const line = document.createElement('div');
+      line.className = 'gantt-tick-line';
+      line.style.left = `calc(${left}% + 16px)`;
+      box.appendChild(line);
+    });
+    box.appendChild(axis);
+
+    // Today marker
+    const today = new Date();
+    if(today >= min && today <= max){
+      const left = ((today - min)/86400000)/total*100;
+      const tline = document.createElement('div');
+      tline.className = 'gantt-today';
+      tline.style.left = `calc(${left}% + 16px)`;
+      box.appendChild(tline);
+    }
+
+    // Bars
     p.tasks.forEach(t=>{
       const left = ((new Date(t.start)-min)/86400000)/total*100;
       const width = Math.max(2, daysBetween(t.start,t.end)/total*100);
@@ -730,7 +723,15 @@
       bar.className='bar';
       bar.style.marginLeft = left+'%';
       bar.style.width = width+'%';
+      bar.title = `${t.title}\n${fmt(t.start)} → ${fmt(t.end)}\nAssignee: ${t.assignee||'—'}\n${t.pct||0}% complete`;
       bar.textContent = t.title;
+
+      const pct = Math.max(0, Math.min(100, t.pct||0));
+      const prog = document.createElement('span');
+      prog.className = 'bar-progress';
+      prog.style.width = pct + '%';
+      bar.appendChild(prog);
+
       box.appendChild(bar);
     });
   }
@@ -782,7 +783,6 @@
     if(new Date(newStart) > new Date(newEnd)){
       alert('Start must be before End'); return;
     }
-    // compute offset in days
     const deltaDays = Math.round((new Date(newStart) - new Date(p.start))/86400000);
     p.start = newStart; p.end = newEnd;
 
@@ -885,7 +885,7 @@
     }
   });
 
-  // ---------- RAID view (unchanged behavior + Actions column present) ----------
+  // ---------- RAID view ----------
   function renderRAID(){
     const p = state.projects.find(x=>x.id===currentProjectId) || state.projects[0];
     if(!p){
@@ -1030,11 +1030,10 @@
     }
   });
 
-  // Status Auto-Draft (now includes notes)
+  // Status Auto-Draft (includes notes)
   function weekBounds(dateStr){
     const d = dateStr ? new Date(dateStr) : new Date();
-    // Monday as start of week
-    const day = (d.getDay()+6)%7; // 0 = Monday
+    const day = (d.getDay()+6)%7; // Monday start
     const start = new Date(d); start.setDate(d.getDate()-day);
     const end = new Date(start); end.setDate(start.getDate()+6);
     return [start, end];
@@ -1054,7 +1053,6 @@
     const rag = projectRAG(p);
     const tone = audience==='exec' ? 'Concise update for sponsors:' : 'Team-focused update:';
 
-    // Notes for selected week (fallback to 3 most recent if no week selected)
     const notesAll = p.notes||[];
     const notesInWeek = notesAll.filter(n=>{
       if(!n.date) return false;
@@ -1069,14 +1067,12 @@
     lines.push(`Progress: ${done}/${total} tasks complete (${Math.round(done/total*100)}%). ${overdue} overdue.`);
     if(riskOpen>0) lines.push(`Risks: ${riskOpen} open; top exposures under mitigation.`);
 
-    // Next milestones (next 3 by end date)
     const upcoming = (p.tasks||[]).filter(t=> (t.pct||0)<100).sort((a,b)=> new Date(a.end)-new Date(b.end)).slice(0,3);
     if(upcoming.length){
       lines.push('Next milestones:');
       upcoming.forEach(t=> lines.push(`• ${t.title} → ${fmt(t.end)}`));
     }
 
-    // Notes section
     if(recentNotes.length){
       const label = notesInWeek.length ? 'Notes this week:' : 'Recent notes:';
       lines.push(label);
