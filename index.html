@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PlanCraft · Project Planning App (Prototype)</title>
+  <style>
+    :root{
+      --bg: #0e1116;            /* dark canvas */
+      --panel:#141925;          /* cards */
+      --muted:#8aa0b4;          /* secondary text */
+      --text:#e9f0f6;           /* primary text */
+      --accent:#d9a6c1;         /* blush – girl-boss hint */
+      --accent-2:#69b7ad;       /* dusty teal */
+      --ok:#6ad59a; --warn:#ffd166; --bad:#ff6b6b;
+      --ring: 0 0 0 2px rgba(217,166,193,.4);
+      --shadow: 0 8px 30px rgba(0,0,0,.35);
+      --radius: 14px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text);}
+    a{color:var(--accent)}
+    /* Layout */
+    .app{display:grid; grid-template-columns: 260px 1fr; grid-template-rows: 64px minmax(0,1fr); grid-template-areas:"aside header" "aside main"; height:100%}
+    header{grid-area:header; display:flex; align-items:center; gap:16px; padding:0 20px; background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0)); border-bottom:1px solid rgba(255,255,255,.06)}
+    aside{grid-area:aside; padding:18px; border-right:1px solid rgba(255,255,255,.06)}
+    main{grid-area:main; padding:22px; overflow:auto}
+    /* Header */
+    .brand{display:flex; align-items:center; gap:12px; font-weight:700; letter-spacing:.3px}
+    .logo{width:34px; height:34px; background:radial-gradient(60% 60% at 40% 35%, var(--accent), transparent 60%), radial-gradient(60% 60% at 70% 65%, var(--accent-2), transparent 60%), #1b2030; border-radius:10px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.06), var(--shadow)}
+    .spacer{flex:1}
+    .pill{background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); padding:8px 12px; border-radius:999px; color:var(--muted); font-size:12px}
+    .btn{background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02)); border:1px solid rgba(255,255,255,.12); color:var(--text); padding:10px 14px; border-radius:12px; cursor:pointer; transition:.2s transform,.2s box-shadow; box-shadow:var(--shadow)}
+    .btn:hover{transform:translateY(-1px)}
+    .btn.acc{background:linear-gradient(180deg, rgba(217,166,193,.25), rgba(217,166,193,.08)); border-color:rgba(217,166,193,.35)}
+    .btn.ghost{background:transparent; border-color:rgba(255,255,255,.12)}
+    .select, input, textarea{width:100%; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.12); color:var(--text); padding:10px 12px; border-radius:10px; outline:none}
+    input:focus, textarea:focus, select:focus{box-shadow:var(--ring)}
+    /* Sidebar */
+    nav{display:flex; flex-direction:column; gap:6px}
+    .nav-item{display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; color:var(--muted); cursor:pointer}
+    .nav-item:hover{background:rgba(255,255,255,.04)}
+    .nav-item.active{background:linear-gradient(180deg, rgba(217,166,193,.18), rgba(217,166,193,.06)); color:var(--text); border:1px solid rgba(217,166,193,.30)}
+    .aside-card{background:var(--panel); border:1px solid rgba(255,255,255,.06); border-radius:var(--radius); padding:12px; box-shadow:var(--shadow); margin-top:16px}
+    /* Cards & sections */
+    .section{display:flex; flex-direction:column; gap:14px}
+    .grid{display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:16px}
+    .card{background:var(--panel); border:1px solid rgba(255,255,255,.06); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow)}
+    .card h3{margin:0 0 6px}
+    .muted{color:var(--muted)}
+    .kpi{display:flex; gap:14px}
+    .kpi .bubble{padding:8px 10px; border-radius:10px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); font-size:12px}
+    /* Progress ring */
+    .ring{--p:65; width:56px; height:56px; border-radius:50%; background:conic-gradient(var(--accent) calc(var(--p)*1%), rgba(255,255,255,.08) 0); display:grid; place-items:center}
+    .ring span{font-size:12px}
+    /* Tables */
+    table{width:100%; border-collapse:separate; border-spacing:0 8px}
+    th{color:var(--muted); font-weight:600; text-align:left; font-size:12px}
+    td{background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); padding:10px; border-radius:8px}
+    /* Gantt */
+    .gantt{position:relative; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:16px; overflow:auto}
+    .bar{position:relative; height:28px; border-radius:8px; background:linear-gradient(90deg, var(--accent-2), var(--accent)); display:flex; align-items:center; padding-left:8px; font-size:12px; color:#0e1116}
+    .bar + .bar{margin-top:8px}
+    .legend{display:flex; gap:10px; font-size:12px; color:var(--muted)}
+    .rag{display:inline-flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.12)}
+    .dot{width:8px; height:8px; border-radius:50%}
+    .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)}
+    /* Modal */
+    .modal{position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; padding:20px}
+    .modal .sheet{max-width:760px; width:100%; background:var(--panel); border:1px solid rgba(255,255,255,.08); border-radius:16px; box-shadow:var(--shadow); padding:18px}
+    /* Confetti-ish sparkles */
+    .sparkles{position:fixed; pointer-events:none; inset:0; display:none}
+    .sparkles i{position:absolute; width:6px; height:6px; background:currentColor; transform:translate(-50%,-50%); border-radius:2px; opacity:.9}
+    /* Utilities */
+    .row{display:flex; gap:12px}
+    .col{flex:1}
+    .hidden{display:none}
+    @media (max-width: 900px){ .app{grid-template-columns: 1fr; grid-template-areas: "header" "main"} aside{display:none} }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <div class="brand" style="margin-bottom:14px">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <div>PlanCraft</div>
+          <div class="muted" style="font-size:12px">Sleek PM planning</div>
+        </div>
+      </div>
+      <nav id="nav">
+        <div class="nav-item active" data-view="dashboard">🏠 Dashboard</div>
+        <div class="nav-item" data-view="archived">🗃️ Archived Projects</div>
+        <div class="nav-item" data-view="intake">🧭 New Project</div>
+        <div class="nav-item" data-view="plan">🗂️ Plan</div>
+        <div class="nav-item" data-view="raid">🛡️ RAID</div>
+        <div class="nav-item" data-view="status">📣 Status</div>
+        <div class="nav-item" data-view="settings">⚙️ Settings</div>
+      </nav>
+
+      <div class="aside-card">
+        <div style="font-weight:600; margin-bottom:8px">Quick Tips</div>
+        <ul class="muted" style="padding-left:18px; margin:0">
+          <li>Use <em>New Project</em> → Generate Plan</li>
+          <li>Track risks in <em>RAID</em></li>
+          <li>Auto-draft updates in <em>Status</em></li>
+        </ul>
+      </div>
+    </aside>
+
+    <header>
+      <div class="brand"><div class="logo"></div><div>PlanCraft</div></div>
+      <span class="pill" id="motivation">✨ You’ve got this.</span>
+      <div class="spacer"></div>
+      <button class="btn ghost" id="darkToggle" title="Toggle theme">🌓 Theme</button>
+      <button class="btn acc" data-view-jump="intake">＋ New Project</button>
+    </header>
+
+    <main>
+      <!-- DASHBOARD (Active projects only) -->
+      <section id="view-dashboard" class="section">
+        <div class="grid" id="projectGrid"></div>
+        <div class="grid">
+          <div class="card">
+            <h3>Portfolio KPIs</h3>
+            <div class="kpi">
+              <div class="bubble">On-time milestones: <b id="kpiMilestones">—</b></div>
+              <div class="bubble">Open risks: <b id="kpiRisks">—</b></div>
+              <div class="bubble">Decisions pending: <b id="kpiDecisions">—</b></div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Health</h3>
+            <div class="rag"><span class="dot ok"></span> Green</div>
+            <div class="rag"><span class="dot warn"></span> Amber</div>
+            <div class="rag"><span class="dot bad"></span> Red</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ARCHIVED REPOSITORY -->
+      <section id="view-archived" class="section hidden">
+        <div class="grid" id="archivedGrid"></div>
+      </section>
+
+      <!-- INTAKE -->
+      <section id="view-intake" class="section hidden">
+        <div class="card">
+          <h3>Create Project</h3>
+          <div class="row">
+            <div class="col"><label>Name<input id="pName" placeholder="e.g., Sample Project Plan"/></label></div>
+            <div class="col"><label>Sponsor<input id="pSponsor" placeholder="Jane Doe"/></label></div>
+            <div class="col"><label>Project Manager<input id="pPM" placeholder="e.g., Jane Smith"/></label></div>
+          </div>
+          <div class="row">
+            <div class="col"><label>Start Date<input id="pStart" type="date"/></label></div>
+            <div class="col"><label>Target End<input id="pEnd" type="date"/></label></div>
+          </div>
+          <label>Goals & Scope<textarea id="pScope" rows="5" placeholder="Describe goals, scope, constraints, integrations…"></textarea></label>
+          <label>Stakeholders (comma-separated)<input id="pStake" placeholder="John, Jane, Jim"/></label>
+          <div class="row" style="margin-top:8px">
+            <button class="btn acc" id="btnGen">⚡ Generate Draft Plan</button>
+            <button class="btn" id="btnSave">💾 Save Project</button>
+          </div>
+          <p class="muted">Tip: You can tweak the plan in the <b>Plan</b> view after generating.</p>
+        </div>
+      </section>
+
+      <!-- PLAN -->
+      <section id="view-plan" class="section hidden">
+        <!-- Plan header shows current project & edit button -->
+        <div class="card">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px">
+            <div>
+              <div class="muted" style="font-size:12px">Planning for</div>
+              <h3 style="margin:4px 0 0" id="planProjectName">—</h3>
+            </div>
+            <button class="btn" id="editProjectTitle" title="Edit project title">✏️ Edit Title</button>
+          </div>
+        </div>
+
+        <!-- Project Info (Sponsor + PM + Goals/Scope + Dates) -->
+        <div class="card">
+          <h3 style="margin-bottom:8px">Project Info</h3>
+          <div class="kpi" style="margin-bottom:8px; flex-wrap:wrap">
+            <div class="bubble">Sponsor: <b id="planSponsor">—</b>
+              <button class="btn ghost" id="editSponsor" title="Edit Sponsor" style="padding:4px 8px; margin-left:6px">✏️</button>
+            </div>
+            <div class="bubble">PM: <b id="planPM">—</b>
+              <button class="btn ghost" id="editPM" title="Edit Project Manager" style="padding:4px 8px; margin-left:6px">✏️</button>
+            </div>
+            <div class="bubble">Timeline: <b id="planDates">—</b>
+              <button class="btn ghost" id="editDates" title="Edit Start/End" style="padding:4px 8px; margin-left:6px">✏️</button>
+            </div>
+          </div>
+          <div class="muted" style="font-size:12px; margin-bottom:6px">Goals & Scope</div>
+          <div id="planScope" style="white-space:pre-wrap; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); padding:12px; border-radius:10px; min-height:44px">—</div>
+        </div>
+
+        <div class="row">
+          <div class="card col">
+            <h3>Work Breakdown</h3>
+            <table>
+              <thead><tr><th>Task</th><th>Assignee</th><th>Start</th><th>End</th><th>%</th><th>Actions</th></tr></thead>
+              <tbody id="taskTable"></tbody>
+            </table>
+            <div class="row"><button class="btn" id="addTask">＋ Add Task</button><button class="btn ghost" id="recalc">↻ Recalculate Timeline</button></div>
+          </div>
+          <div class="card col">
+            <h3>Timeline (Mini Gantt)</h3>
+            <div class="gantt" id="gantt"></div>
+            <div class="legend">Bars scale to project window · Edit Start/End via “✏️” then Recalculate if you changed task dates</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RAID -->
+      <section id="view-raid" class="section hidden">
+        <div class="card">
+          <h3>Risks</h3>
+          <table>
+            <thead><tr><th>Title</th><th>P</th><th>I</th><th>Exposure</th><th>Owner</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="riskTable"></tbody>
+          </table>
+          <button class="btn" id="addRisk">＋ Add Risk</button>
+        </div>
+        <div class="card">
+          <h3>Issues</h3>
+          <table>
+            <thead><tr><th>Title</th><th>Severity</th><th>Owner</th><th>ETA</th><th>Status</th></tr></thead>
+            <tbody id="issueTable"></tbody>
+          </table>
+          <button class="btn" id="addIssue">＋ Add Issue</button>
+        </div>
+      </section>
+
+      <!-- STATUS -->
+      <section id="view-status" class="section hidden">
+        <div class="card">
+          <h3>Weekly Status</h3>
+          <div class="row">
+            <div class="col">
+              <label>Audience
+                <select id="audience" class="select">
+                  <option value="exec">Executive</option>
+                  <option value="team">Team</option>
+                </select>
+              </label>
+            </div>
+            <div class="col"><label>Week Of<input id="weekOf" type="date"/></label></div>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button class="btn acc" id="autoDraft">✨ Auto-Draft Status</button>
+            <button class="btn ghost" id="celebrate">🎉 Celebrate Win</button>
+          </div>
+          <textarea id="statusText" rows="12" style="margin-top:10px" placeholder="Draft will appear here…"></textarea>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="view-settings" class="section hidden">
+        <div class="card">
+          <h3>Personalize</h3>
+          <div class="row">
+            <div class="col"><label>Accent Color<select id="accentPick" class="select">
+              <option value="#d9a6c1">Blush (default)</option>
+              <option value="#69b7ad">Dusty Teal</option>
+              <option value="#cbb2ff">Lavender</option>
+              <option value="#f6c064">Gold</option>
+            </select></label></div>
+            <div class="col"><label>Motivation<input id="motivationInput" placeholder="e.g., Crushing it, Andi!"/></label></div>
+          </div>
+          <button class="btn" id="savePrefs">Save Preferences</button>
+        </div>
+        <div class="card">
+          <h3>Data</h3>
+          <div class="row"><button class="btn ghost" id="exportData">Export JSON</button><button class="btn" id="importData">Import JSON</button><input id="importFile" type="file" accept="application/json" class="hidden"/></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal for Add Task -->
+  <div class="modal" id="taskModal" role="dialog" aria-modal="true">
+    <div class="sheet">
+      <h3>Add Task</h3>
+      <div class="row"><div class="col"><label>Title<input id="mTitle"/></label></div><div class="col"><label>Assignee<input id="mAssignee"/></label></div></div>
+      <div class="row"><div class="col"><label>Start<input type="date" id="mStart"/></label></div><div class="col"><label>End<input type="date" id="mEnd"/></label></div></div>
+      <div class="row"><div class="col"><label>Percent<input type="number" id="mPct" value="0" min="0" max="100"/></label></div></div>
+      <div class="row" style="margin-top:10px"><button class="btn acc" id="mSave">Save</button><button class="btn ghost" id="mCancel">Cancel</button></div>
+    </div>
+  </div>
+
+  <!-- Modal for Edit Timeline Dates -->
+  <div class="modal" id="dateModal" role="dialog" aria-modal="true">
+    <div class="sheet">
+      <h3>Edit Timeline Dates</h3>
+      <div class="row">
+        <div class="col"><label>Start Date<input type="date" id="dStart"/></label></div>
+        <div class="col"><label>End Date<input type="date" id="dEnd"/></label></div>
+      </div>
+      <label style="display:flex; align-items:center; gap:8px; margin-top:8px">
+        <input type="checkbox" id="dShift" checked/> <span class="muted">Shift all task dates by the same offset</span>
+      </label>
+      <div class="row" style="margin-top:10px">
+        <button class="btn acc" id="dSave">Save</button>
+        <button class="btn ghost" id="dCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sparkles" id="sparkles"></div>
+
+  <script>
+  // --- Simple state management ---
+  const state = JSON.parse(localStorage.getItem('plancraft')||'{}');
+  state.projects ||= [];
+  state.prefs ||= {accent:'#d9a6c1', motivation:'✨ You\'ve got this.'};
+  let currentProjectId = state.projects[0]?.id || null;
+
+  // Utility
+  const qs = (sel, el=document)=>el.querySelector(sel);
+  const qsa = (sel, el=document)=>[...el.querySelectorAll(sel)];
+  const fmt = d=> d? new Date(d).toISOString().slice(0,10): '';
+  const daysBetween=(a,b)=> Math.max(1, Math.round((new Date(b)-new Date(a))/86400000));
+  const clamp=(n,min,max)=>Math.min(Math.max(n,min),max);
+
+  // Navigation
+  qsa('[data-view]').forEach(item=> item.addEventListener('click',()=> showView(item.dataset.view)) );
+  qsa('[data-view-jump]').forEach(btn=> btn.addEventListener('click',()=> showView(btn.dataset.viewJump)) );
+  function showView(id){
+    qsa('.nav-item').forEach(n=> n.classList.toggle('active', n.dataset.view===id));
+    qsa('main > section').forEach(s=> s.classList.toggle('hidden', s.id!==`view-${id}`));
+    if(id==='dashboard') renderDashboard();
+    if(id==='archived') renderArchived();
+    if(id==='plan') renderPlan();
+    if(id==='raid') renderRAID();
+  }
+
+  // Apply prefs
+  function applyPrefs(){
+    document.documentElement.style.setProperty('--accent', state.prefs.accent);
+    qs('#motivation').textContent = state.prefs.motivation;
+  }
+
+  // THEME
+  qs('#darkToggle').addEventListener('click',()=>{
+    const dark = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()==='#0e1116';
+    if(dark){
+      document.documentElement.style.setProperty('--bg','#f7f8fb');
+      document.documentElement.style.setProperty('--panel','#ffffff');
+      document.documentElement.style.setProperty('--text','#0e1116');
+      document.documentElement.style.setProperty('--muted','#556171');
+    } else {
+      document.documentElement.style.setProperty('--bg','#0e1116');
+      document.documentElement.style.setProperty('--panel','#141925');
+      document.documentElement.style.setProperty('--text','#e9f0f6');
+      document.documentElement.style.setProperty('--muted','#8aa0b4');
+    }
+  });
+
+  // Dashboard (ACTIVE only)
+  function renderDashboard(){
+    const grid = qs('#projectGrid');
+    grid.innerHTML = '';
+    const list = state.projects.filter(p=> !p.archived);
+    if(list.length===0){
+      grid.innerHTML = `<div class="card" style="grid-column:1/-1"><h3>Welcome</h3><p class="muted">No active projects. Create one in <b>New Project</b> or check <b>Archived Projects</b>.</p></div>`;
+      return;
+    }
+    list.forEach(p=>{
+      const complete = Math.round((p.tasks?.reduce((a,t)=>a+(t.pct||0),0)/(p.tasks?.length||1))||0);
+      const rag = projectRAG(p);
+      const el = document.createElement('div');
+      el.className='card';
+      el.innerHTML = `
+        <div style="display:flex; align-items:center; gap:12px; justify-content:space-between">
+          <div style="display:flex; align-items:center; gap:12px">
+            <div class="ring" style="--p:${complete}"><span>${complete}%</span></div>
+            <div>
+              <h3 style="margin:0">${p.name}</h3>
+              <div class="muted">Sponsor: ${p.sponsor||'—'} · PM: ${p.pm||'—'}</div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px">
+            <div class="rag"><span class="dot ${rag}"></span> ${rag.toUpperCase()}</div>
+            <button class="btn ghost" data-arch="${p.id}">Archive</button>
+          </div>
+        </div>
+        <div class="kpi" style="margin-top:10px">
+          <div class="bubble">Start <b>${fmt(p.start)}</b></div>
+          <div class="bubble">End <b>${fmt(p.end)}</b></div>
+          <div class="bubble">Tasks <b>${p.tasks?.length||0}</b></div>
+        </div>
+        <div style="margin-top:10px; display:flex; gap:8px">
+          <button class="btn" data-open="plan">Open Plan</button>
+          <button class="btn ghost" data-open="raid">RAID</button>
+        </div>`;
+      qsa('[data-open]', el).forEach(b=> b.addEventListener('click',()=>{ currentProjectId=p.id; showView(b.dataset.open)}));
+      el.querySelector('[data-arch]').addEventListener('click', (e)=>{
+        const proj = state.projects.find(x=>x.id===e.currentTarget.dataset.arch);
+        if(!proj) return;
+        proj.archived = true;
+        persist();
+        renderDashboard();
+      });
+      grid.appendChild(el);
+    });
+    qs('#kpiMilestones').textContent = `${Math.round(avgOnTime()*100)}%`;
+    qs('#kpiRisks').textContent = state.projects.reduce((a,p)=> a + (p.risks?.length||0), 0);
+    qs('#kpiDecisions').textContent = state.projects.reduce((a,p)=> a + (p.decisions?.length||0), 0);
+  }
+
+  // Archived view
+  function renderArchived(){
+    const grid = qs('#archivedGrid');
+    grid.innerHTML = '';
+    const list = state.projects.filter(p=> p.archived);
+    if(list.length===0){
+      grid.innerHTML = `<div class="card" style="grid-column:1/-1"><h3>No archived projects</h3><p class="muted">Archive projects from the Dashboard to see them here.</p></div>`;
+      return;
+    }
+    list.forEach(p=>{
+      const el = document.createElement('div');
+      el.className='card';
+      el.innerHTML = `
+        <div style="display:flex; align-items:center; gap:12px; justify-content:space-between">
+          <div>
+            <h3 style="margin:0">${p.name}</h3>
+            <div class="muted">Sponsor: ${p.sponsor||'—'} · PM: ${p.pm||'—'} · ${fmt(p.start)} → ${fmt(p.end)}</div>
+          </div>
+          <div style="display:flex; gap:8px">
+            <button class="btn" data-unarch="${p.id}">Unarchive</button>
+            <button class="btn ghost" data-open="plan">Open Plan</button>
+            <button class="btn ghost" data-open="raid">RAID</button>
+          </div>
+        </div>`;
+      el.querySelector('[data-unarch]').addEventListener('click', (e)=>{
+        const proj = state.projects.find(x=>x.id===e.currentTarget.dataset.unarch);
+        if(!proj) return;
+        proj.archived = false;
+        persist();
+        renderArchived();
+      });
+      qsa('[data-open]', el).forEach(b=> b.addEventListener('click',()=>{ currentProjectId=p.id; showView(b.dataset.open)}));
+      grid.appendChild(el);
+    });
+  }
+
+  function avgOnTime(){
+    if(state.projects.length===0) return 0.0;
+    const vals = state.projects.map(p=>{
+      const late = (p.tasks||[]).filter(t=> new Date(t.end) < new Date() && (t.pct||0)<100).length;
+      const total = (p.tasks||[]).length||1;
+      return 1 - late/total;
+    });
+    return vals.reduce((a,b)=>a+b,0)/vals.length;
+  }
+
+  // Intake
+  qs('#btnGen').addEventListener('click',()=>{
+    const p = collectIntake();
+    if(!p) return;
+    p.tasks = generateDraftTasks(p);
+    currentProjectId = upsertProject(p).id;
+    persist();
+    showView('plan');
+  });
+  qs('#btnSave').addEventListener('click',()=>{
+    const p = collectIntake(); if(!p) return;
+    currentProjectId = upsertProject(p).id; persist(); renderDashboard(); alert('Project saved.');
+  });
+
+  function collectIntake(){
+    const name = qs('#pName').value.trim();
+    if(!name){ alert('Name is required'); return null; }
+    const p={
+      id: 'p_'+Math.random().toString(36).slice(2),
+      name,
+      sponsor: qs('#pSponsor').value.trim(),
+      pm: qs('#pPM').value.trim(),
+      start: qs('#pStart').value || fmt(new Date()),
+      end: qs('#pEnd').value || fmt(new Date(Date.now()+1000*60*60*24*30)),
+      scope: qs('#pScope').value.trim(),
+      stakeholders: qs('#pStake').value.split(',').map(s=>s.trim()).filter(Boolean),
+      archived: false,
+      tasks: [], risks:[], issues:[], decisions:[]
+    };
+    return p;
+  }
+
+  function upsertProject(p){
+    const i = state.projects.findIndex(x=>x.id===p.id);
+    if(i>=0) state.projects[i]= {...state.projects[i], ...p};
+    else state.projects.push(p);
+    return state.projects.find(x=>x.id===p.id);
+  }
+
+  function persist(){ localStorage.setItem('plancraft', JSON.stringify(state)); }
+
+  // Draft Plan generator
+  function generateDraftTasks(p){
+    const days = Math.max(20, daysBetween(p.start, p.end));
+    const bucket = Math.floor(days/5);
+    const assignee = p.stakeholders[0]||'TBD';
+    const mk = (title, offset, len)=>({
+      id:'t_'+Math.random().toString(36).slice(2),
+      title, assignee,
+      start: fmt(new Date(new Date(p.start).getTime()+offset*86400000)),
+      end: fmt(new Date(new Date(p.start).getTime()+(offset+len)*86400000)),
+      pct: 0
+    });
+    const tasks=[
+      mk('Initiation & Charter', 0, bucket),
+      mk('Requirements & Scope Finalization', bucket, bucket),
+      mk('Design & Solution Blueprint', bucket*2, bucket),
+      mk('Build & Configuration', bucket*3, Math.ceil(bucket*1.2)),
+      mk('Testing & UAT', bucket*4, Math.ceil(bucket*0.8)),
+      mk('Cutover Planning', bucket*4, Math.ceil(bucket*0.5)),
+      mk('Go-Live & Hypercare', Math.max(bucket*5-5, bucket*4), 5)
+    ];
+    const scope = (p.scope||'').toLowerCase();
+    if(scope.includes('integration')) tasks.splice(3,0, mk('Integration Mapping & Interfaces', bucket*2, Math.ceil(bucket*0.8)));
+    if(scope.includes('vendor')) tasks.splice(2,0, mk('Vendor Onboarding & SOW', bucket, Math.ceil(bucket*0.8)));
+    return tasks;
+  }
+
+  // PLAN view
+  function renderPlan(){
+    const p = state.projects.find(x=>x.id===currentProjectId) || state.projects[0];
+    if(!p){
+      qs('#planProjectName').textContent = '—';
+      qs('#planSponsor').textContent = '—';
+      qs('#planPM').textContent = '—';
+      qs('#planScope').textContent = '—';
+      qs('#planDates').textContent = '—';
+      qs('#taskTable').innerHTML='<tr><td colspan="6" class="muted">No project. Create one in New Project.</td></tr>';
+      return;
+    }
+    currentProjectId = p.id;
+    qs('#planProjectName').textContent = p.name || 'Untitled Project';
+    qs('#planSponsor').textContent = p.sponsor || '—';
+    qs('#planPM').textContent = p.pm || '—';
+    qs('#planScope').textContent = p.scope || '—';
+    qs('#planDates').textContent = `${fmt(p.start)} → ${fmt(p.end)}`;
+
+    const tbody = qs('#taskTable');
+    tbody.innerHTML='';
+    p.tasks ||= [];
+    p.tasks.forEach((t)=>{
+      const tr = document.createElement('tr');
+      tr.dataset.id = t.id;
+      tr.innerHTML = `
+        <td contenteditable="true" data-k="title">${t.title}</td>
+        <td contenteditable="true" data-k="assignee">${t.assignee||''}</td>
+        <td contenteditable="true" data-k="start">${fmt(t.start)}</td>
+        <td contenteditable="true" data-k="end">${fmt(t.end)}</td>
+        <td contenteditable="true" data-k="pct">${t.pct||0}</td>
+        <td><button class="btn ghost" data-del-task="${t.id}" title="Delete task" style="padding:6px 10px">🗑</button></td>`;
+      tbody.appendChild(tr);
+    });
+    if(p.tasks.length===0){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="6" class="muted">No tasks yet. Add one.</td>`;
+      tbody.appendChild(tr);
+    }
+    drawGantt(p);
+  }
+
+  function readTableTasks(){
+    const rows = qsa('#taskTable tr');
+    return rows.map(r=>{
+      const cells = qsa('[data-k]', r);
+      if(cells.length===0) return null;
+      const obj={}; cells.forEach(c=> obj[c.dataset.k]=c.textContent.trim());
+      obj.pct = clamp(parseInt(obj.pct||'0',10)||0,0,100);
+      obj.start = obj.start||fmt(new Date()); obj.end = obj.end||obj.start;
+      return obj;
+    }).filter(Boolean);
+  }
+
+  function drawGantt(p){
+    const box = qs('#gantt');
+    box.innerHTML='';
+    if(!p || !p.tasks || p.tasks.length===0) { box.textContent='No tasks.'; return; }
+    const min = new Date(Math.min(...p.tasks.map(t=>+new Date(t.start))));
+    const max = new Date(Math.max(...p.tasks.map(t=>+new Date(t.end))));
+    const total = Math.max(1, (max-min)/86400000);
+    p.tasks.forEach(t=>{
+      const left = ((new Date(t.start)-min)/86400000)/total*100;
+      const width = Math.max(2, daysBetween(t.start,t.end)/total*100);
+      const bar = document.createElement('div');
+      bar.className='bar';
+      bar.style.marginLeft = left+'%';
+      bar.style.width = width+'%';
+      bar.textContent = t.title;
+      box.appendChild(bar);
+    });
+  }
+
+  // Edit project title / sponsor / PM
+  qs('#editProjectTitle').addEventListener('click', ()=>{
+    const p = state.projects.find(x=>x.id===currentProjectId);
+    if(!p){ alert('Open a project first.'); return; }
+    const newName = prompt('Edit project title:', p.name || 'Untitled Project');
+    if(newName && newName.trim()){
+      p.name = newName.trim(); persist();
+      qs('#planProjectName').textContent = p.name;
+      renderDashboard(); renderArchived();
+    }
+  });
+  qs('#editSponsor').addEventListener('click', ()=>{
+    const p = state.projects.find(x=>x.id===currentProjectId);
+    if(!p){ alert('Open a project first.'); return; }
+    const v = prompt('Edit Sponsor:', p.sponsor || '');
+    if(v!==null){
+      p.sponsor = v.trim(); persist();
+      renderPlan(); renderDashboard(); renderArchived();
+    }
+  });
+  qs('#editPM').addEventListener('click', ()=>{
+    const p = state.projects.find(x=>x.id===currentProjectId);
+    if(!p){ alert('Open a project first.'); return; }
+    const v = prompt('Edit Project Manager:', p.pm || '');
+    if(v!==null){
+      p.pm = v.trim(); persist();
+      renderPlan(); renderDashboard(); renderArchived();
+    }
+  });
+
+  // Edit timeline dates modal
+  qs('#editDates').addEventListener('click', ()=>{
+    const p = state.projects.find(x=>x.id===currentProjectId);
+    if(!p){ alert('Open a project first.'); return; }
+    qs('#dStart').value = fmt(p.start);
+    qs('#dEnd').value   = fmt(p.end);
+    qs('#dShift').checked = true;
+    qs('#dateModal').style.display='flex';
+  });
+  qs('#dCancel').addEventListener('click', ()=> qs('#dateModal').style.display='none');
+  qs('#dSave').addEventListener('click', ()=>{
+    const p = state.projects.find(x=>x.id===currentProjectId); if(!p) return;
+    const newStart = qs('#dStart').value || fmt(p.start);
+    const newEnd   = qs('#dEnd').value || fmt(p.end);
+    if(new Date(newStart) > new Date(newEnd)){
+      alert('Start must be before End'); return;
+    }
+    // compute offset in days
+    const deltaDays = Math.round((new Date(newStart) - new Date(p.start))/86400000);
+    p.start = newStart; p.end = newEnd;
+
+    if(qs('#dShift').checked && Array.isArray(p.tasks)){
+      p.tasks = p.tasks.map(t=>{
+        const ns = fmt(new Date(new Date(t.start).getTime() + deltaDays*86400000));
+        const ne = fmt(new Date(new Date(t.end).getTime()   + deltaDays*86400000));
+        return {...t, start: ns, end: ne};
+        });
+    }
+    persist();
+    qs('#dateModal').style.display='none';
+    renderPlan(); renderDashboard(); renderArchived();
+  });
+
+  // Tasks modal
+  qs('#addTask').addEventListener('click',()=> openTaskModal());
+  function openTaskModal(){
+    qs('#taskModal').style.display='flex';
+    ['mTitle','mAssignee','mStart','mEnd','mPct'].forEach(id=> qs('#'+id).value='');
+  }
+  qs('#mCancel').addEventListener('click',()=> qs('#taskModal').style.display='none');
+  qs('#mSave').addEventListener('click',()=>{
+    const p = state.projects.find(x=>x.id===currentProjectId); if(!p) return;
+    p.tasks ||= [];
+    p.tasks.push({
+      id:'t_'+Math.random().toString(36).slice(2),
+      title: qs('#mTitle').value||'New Task',
+      assignee: qs('#mAssignee').value||'TBD',
+      start: qs('#mStart').value||fmt(new Date()),
+      end: qs('#mEnd').value||fmt(new Date()),
+      pct: clamp(parseInt(qs('#mPct').value||'0',10),0,100)
+    });
+    persist();
+    qs('#taskModal').style.display='none';
+    renderPlan();
+  });
+
+  // Recalc from inline edits
+  qs('#recalc').addEventListener('click',()=>{
+    const p = state.projects.find(x=>x.id===currentProjectId); if(!p) return;
+    const edited = readTableTasks();
+    p.tasks = edited.map((t,i)=> ({...p.tasks[i], ...t}));
+    persist();
+    drawGantt(p);
+  });
+
+  // ---------- RAID view (robust risk editing & delete) ----------
+  function renderRAID(){
+    const p = state.projects.find(x=>x.id===currentProjectId) || state.projects[0];
+    if(!p){
+      ['riskTable','issueTable'].forEach(id=> qs('#'+id).innerHTML='<tr><td colspan="7" class="muted">No project.</td></tr>');
+      return;
+    }
+    currentProjectId = p.id;
+
+    p.risks ||= [];
+    let changed = false;
+    p.risks.forEach(r=>{ if(!r.id){ r.id = 'r_'+Math.random().toString(36).slice(2); changed = true; }});
+    if(changed) persist();
+
+    const rT=qs('#riskTable'); rT.innerHTML='';
+    if(p.risks.length===0){
+      const tr=document.createElement('tr');
+      tr.innerHTML='<td colspan="7" class="muted">No risks yet. Add one below.</td>';
+      rT.appendChild(tr);
+    } else {
+      p.risks.forEach(r=>{
+        const tr=document.createElement('tr');
+        tr.dataset.id = r.id;
+        tr.innerHTML=`
+          <td contenteditable data-k="title">${r.title||''}</td>
+          <td contenteditable data-k="p">${r.p??2}</td>
+          <td contenteditable data-k="i">${r.i??2}</td>
+          <td class="exp">${((r.p??2)*(r.i??2))}</td>
+          <td contenteditable data-k="owner">${r.owner||'TBD'}</td>
+          <td contenteditable data-k="status">${r.status||'Open'}</td>
+          <td><button class="btn ghost" style="padding:6px 10px" title="Delete risk" data-del-risk="${r.id}">🗑</button></td>`;
+        rT.appendChild(tr);
+      });
+    }
+
+    const iT=qs('#issueTable'); iT.innerHTML='';
+    p.issues ||= [];
+    if(p.issues.length===0){
+      const tr=document.createElement('tr');
+      tr.innerHTML='<td colspan="5" class="muted">No issues yet. Add one below.</td>';
+      iT.appendChild(tr);
+    } else {
+      p.issues.forEach(it=>{
+        const tr=document.createElement('tr');
+        tr.dataset.id = it.id || ('i_'+Math.random().toString(36).slice(2));
+        it.id = tr.dataset.id;
+        tr.innerHTML=`<td contenteditable data-k="title">${it.title||''}</td>
+          <td contenteditable data-k="sev">${it.sev||'Med'}</td>
+          <td contenteditable data-k="owner">${it.owner||'TBD'}</td>
+          <td contenteditable data-k="eta">${it.eta||fmt(new Date())}</td>
+          <td contenteditable data-k="status">${it.status||'Open'}</td>`;
+        iT.appendChild(tr);
+      });
+    }
+  }
+
+  function syncRisksFromTable(){
+    const p = state.projects.find(x=>x.id===currentProjectId); if(!p) return;
+    const rows = qsa('#riskTable tr[data-id]');
+    if(rows.length===0) return;
+    const byId = {};
+    (p.risks||[]).forEach(r=> byId[r.id]=r);
+    const updated = [];
+    rows.forEach(row=>{
+      const id = row.dataset.id;
+      const base = byId[id] || {id};
+      const obj = {...base};
+      qsa('[data-k]', row).forEach(cell=>{
+        const k = cell.dataset.k;
+        let val = cell.textContent.trim();
+        if(k==='p' || k==='i'){ val = clamp(parseInt(val,10)||2,1,5); }
+        obj[k]=val;
+      });
+      updated.push(obj);
+    });
+    p.risks = updated;
+    persist();
+  }
+  function syncIssuesFromTable(){
+    const p = state.projects.find(x=>x.id===currentProjectId); if(!p) return;
+    const rows = qsa('#issueTable tr');
+    if(rows.length===0) return;
+    const updated = [];
+    rows.forEach(row=>{
+      const cells = qsa('[data-k]', row);
+      if(cells.length===0) return;
+      const id = row.dataset.id || ('i_'+Math.random().toString(36).slice(2));
+      const obj = {id};
+      cells.forEach(c=>{
+        const k=c.dataset.k;
+        let v=c.textContent.trim();
+        obj[k]=v;
+      });
+      updated.push(obj);
+    });
+    p.issues = updated;
+    persist();
+  }
+
+  document.addEventListener('input', function(e){
+    const cell = e.target.closest('#riskTable [data-k]');
+    if(!cell) return;
+    const row = e.target.closest('tr[data-id]');
+    if(!row) return;
+    const pVal = clamp(parseInt(qs('[data-k="p"]', row)?.textContent.trim(),10)||2,1,5);
+    const iVal = clamp(parseInt(qs('[data-k="i"]', row)?.textContent.trim(),10)||2,1,5);
+    const expCell = qs('.exp', row);
+    if(expCell) expCell.textContent = pVal*iVal;
+  });
+  document.addEventListener('focusout', function(e){
+    if(e.target.closest('#riskTable [data-k]')) syncRisksFromTable();
+    if(e.target.closest('#issueTable [data-k]')) syncIssuesFromTable();
+  });
+
+  document.addEventListener('click', function(e){
+    // Add Risk/Issue
+    const riskBtn = e.target.closest('#addRisk');
+    if(riskBtn){
+      const p = state.projects.find(x=>x.id===currentProjectId);
+      if(!p){ alert('Open a project first.'); return; }
+      syncRisksFromTable();
+      if(!Array.isArray(p.risks)) p.risks = [];
+      p.risks.push({ id:'r_'+Math.random().toString(36).slice(2), title:'New Risk', p:2, i:2, owner:'TBD', status:'Open' });
+      persist();
+      renderRAID();
+      return;
+    }
+    const issueBtn = e.target.closest('#addIssue');
+    if(issueBtn){
+      const p = state.projects.find(x=>x.id===currentProjectId);
+      if(!p){ alert('Open a project first.'); return; }
+      syncIssuesFromTable();
+      if(!Array.isArray(p.issues)) p.issues = [];
+      p.issues.push({ id:'i_'+Math.random().toString(36).slice(2), title:'New Issue', sev:'Med', owner:'TBD', eta:fmt(new Date()), status:'Open' });
+      persist();
+      renderRAID();
+      return;
+    }
+    // Delete Risk
+    const delRiskBtn = e.target.closest('[data-del-risk]');
+    if(delRiskBtn){
+      const id = delRiskBtn.getAttribute('data-del-risk');
+      const p = state.projects.find(x=>x.id===currentProjectId);
+      if(!p) return;
+      p.risks = (p.risks||[]).filter(r=> r.id!==id);
+      persist();
+      renderRAID();
+      return;
+    }
+    // Delete Task
+    const delTaskBtn = e.target.closest('[data-del-task]');
+    if(delTaskBtn){
+      const id = delTaskBtn.getAttribute('data-del-task');
+      const p = state.projects.find(x=>x.id===currentProjectId);
+      if(!p) return;
+      p.tasks = (p.tasks||[]).filter(t=> t.id!==id);
+      persist();
+      renderPlan();
+      return;
+    }
+  });
+
+  // Status Auto-Draft
+  qs('#autoDraft').addEventListener('click',()=>{
+    const p = state.projects.find(x=>x.id===currentProjectId) || state.projects[0];
+    if(!p){ alert('No project selected.'); return; }
+    const audience = qs('#audience').value;
+    const week = qs('#weekOf').value || fmt(new Date());
+    const total = (p.tasks||[]).length || 1;
+    const done = (p.tasks||[]).filter(t=> (t.pct||0)>=100).length;
+    const overdue = (p.tasks||[]).filter(t=> new Date(t.end) < new Date() && (t.pct||0)<100).length;
+    const riskOpen = (p.risks||[]).filter(r=> (r.status||'Open').toLowerCase()!=='closed').length;
+    const rag = projectRAG(p);
+    const tone = audience==='exec' ? 'Concise update for sponsors:' : 'Team-focused update:';
+
+    const lines = [];
+    lines.push(`${tone} Week of ${week}. Overall status: ${rag.toUpperCase()}.`);
+    lines.push(`Progress: ${done}/${total} tasks complete (${Math.round(done/total*100)}%). ${overdue} overdue.`);
+    if(riskOpen>0) lines.push(`Risks: ${riskOpen} open; top exposures under mitigation.`);
+
+    const upcoming = (p.tasks||[]).filter(t=> (t.pct||0)<100).sort((a,b)=> new Date(a.end)-new Date(b.end)).slice(0,3);
+    if(upcoming.length){
+      lines.push('Next milestones:');
+      upcoming.forEach(t=> lines.push(`• ${t.title} → ${fmt(t.end)}`));
+    }
+    if(audience==='exec'){
+      const high = (p.risks||[]).some(r=> ((r.p||2)*(r.i||2)) >=9);
+      const needs = [];
+      if(overdue>2) needs.push('Confirm scope trade-offs to protect timeline');
+      if(high) needs.push('Approve contingency budget for high risk');
+      if(needs.length) lines.push('Decisions requested: ' + needs.join('; ') + '.');
+    } else {
+      lines.push('Focus for the week: unblock overdue tasks, close top risks, prep UAT.');
+    }
+
+    qs('#statusText').value = lines.join('\n');
+  });
+
+  function projectRAG(p){
+    const overdue = (p.tasks||[]).filter(t=> new Date(t.end) < new Date() && (t.pct||0)<100).length;
+    const highRisk = (p.risks||[]).some(r=> ((r.p||2)*(r.i||2)) >=9);
+    if(overdue>=3 || highRisk) return 'bad';
+    if(overdue>=1) return 'warn';
+    return 'ok';
+  }
+
+  // Celebrate sparkles
+  qs('#celebrate').addEventListener('click',()=> sparkles());
+  function sparkles(){
+    const layer = qs('#sparkles'); layer.innerHTML=''; layer.style.display='block';
+    for(let i=0;i<120;i++){
+      const dot=document.createElement('i');
+      dot.style.left = Math.random()*100+'%';
+      dot.style.top = Math.random()*100+'%';
+      dot.style.color = Math.random()>.5? 'var(--accent)': 'var(--accent-2)';
+      dot.animate([
+        {transform:'translate(-50%,-50%) scale(1)', opacity:1},
+        {transform:`translate(${(Math.random()-.5)*200}px, ${(Math.random()-.5)*200}px) scale(0)`, opacity:0}
+      ], {duration:900+Math.random()*600, easing:'ease-out'});
+      layer.appendChild(dot);
+    }
+    setTimeout(()=> layer.style.display='none', 1600);
+  }
+
+  // Settings
+  qs('#savePrefs').addEventListener('click',()=>{
+    state.prefs.accent = qs('#accentPick').value; state.prefs.motivation = qs('#motivationInput').value || state.prefs.motivation; persist(); applyPrefs(); alert('Saved!');
+  });
+  qs('#exportData').addEventListener('click',()=>{
+    const data = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(data); const a = document.createElement('a'); a.href=url; a.download='plancraft.json'; a.click(); URL.revokeObjectURL(url);
+  });
+  qs('#importData').addEventListener('click',()=> qs('#importFile').click());
+  qs('#importFile').addEventListener('change', ev=>{
+    const f = ev.target.files[0]; if(!f) return;
+    const r = new FileReader(); r.onload = ()=>{ try{ const obj=JSON.parse(r.result); Object.assign(state, obj); persist(); applyPrefs(); renderDashboard(); alert('Imported.'); } catch(e){ alert('Invalid JSON.'); } };
+    r.readAsText(f);
+  });
+
+  // Init
+  applyPrefs(); renderDashboard();
+  showView('dashboard');
+  </script>
+</body>
+</html>
