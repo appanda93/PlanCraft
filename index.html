@@ -68,7 +68,7 @@
     /* Tables */
     table{width:100%; border-collapse:separate; border-spacing:0 8px}
     th{color:var(--muted); font-weight:600; text-align:left; font-size:12px}
-    td{background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); padding:10px; border-radius:8px}
+    td{background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); padding:10px; border-radius:8px; vertical-align:top}
     /* Gantt */
     .gantt{position:relative; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:16px; overflow:auto}
     .bar{position:relative; height:28px; border-radius:8px; background:linear-gradient(90deg, var(--accent-2), var(--accent)); display:flex; align-items:center; padding-left:8px; font-size:12px; color:#0e1116}
@@ -113,9 +113,10 @@
       <div class="aside-card">
         <div style="font-weight:600; margin-bottom:8px">Quick Tips</div>
         <ul class="muted" style="padding-left:18px; margin:0">
-          <li>Use <em>New Project</em> → Generate Plan</li>
-          <li>Track risks in <em>RAID</em></li>
-          <li>Auto-draft updates in <em>Status</em></li>
+          <li>Use <em>New Project</em> → to generate project plan dates</li>
+          <li>View your project milestones in<em>Project Plan</em></li>
+          <li>Track risks in <em>Risks/ Issues</em></li>
+          <li>Auto-draft updates for the team and senior leadership in <em>Status,</em> including notes you've added to your project</li>
         </ul>
       </div>
     </aside>
@@ -207,6 +208,16 @@
           </div>
           <div class="muted" style="font-size:12px; margin-bottom:6px">Goals & Scope</div>
           <div id="planScope" style="white-space:pre-wrap; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); padding:12px; border-radius:10px; min-height:44px">—</div>
+        </div>
+
+        <!-- Project Notes -->
+        <div class="card">
+          <h3 style="margin-bottom:8px">Project Notes</h3>
+          <table>
+            <thead><tr><th style="width:140px">Date</th><th>Note</th><th style="width:110px">Actions</th></tr></thead>
+            <tbody id="noteTable"></tbody>
+          </table>
+          <button class="btn" id="addNote">＋ Add Note</button>
         </div>
 
         <div class="row">
@@ -321,6 +332,21 @@
     </div>
   </div>
 
+  <!-- Modal for Add Note -->
+  <div class="modal" id="noteModal" role="dialog" aria-modal="true">
+    <div class="sheet">
+      <h3>Add Project Note</h3>
+      <div class="row">
+        <div class="col"><label>Date<input type="date" id="nDate"/></label></div>
+      </div>
+      <label>Note<textarea id="nText" rows="6" placeholder="Type your note…"></textarea></label>
+      <div class="row" style="margin-top:10px">
+        <button class="btn acc" id="nSave">Save</button>
+        <button class="btn ghost" id="nCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <div class="sparkles" id="sparkles"></div>
 
   <script>
@@ -336,6 +362,7 @@
   const fmt = d=> d? new Date(d).toISOString().slice(0,10): '';
   const daysBetween=(a,b)=> Math.max(1, Math.round((new Date(b)-new Date(a))/86400000));
   const clamp=(n,min,max)=>Math.min(Math.max(n,min),max);
+  const esc = s => (s||'').replace(/[&<>\"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;' }[c]));
 
   // Navigation
   qsa('[data-view]').forEach(item=> item.addEventListener('click',()=> showView(item.dataset.view)) );
@@ -496,7 +523,8 @@
       scope: qs('#pScope').value.trim(),
       stakeholders: qs('#pStake').value.split(',').map(s=>s.trim()).filter(Boolean),
       archived: false,
-      tasks: [], risks:[], issues:[], decisions:[]
+      tasks: [], risks:[], issues:[], decisions:[],
+      notes: []                 /* <-- new */
     };
     return p;
   }
@@ -547,6 +575,7 @@
       qs('#planScope').textContent = '—';
       qs('#planDates').textContent = '—';
       qs('#taskTable').innerHTML='<tr><td colspan="6" class="muted">No project. Create one in New Project.</td></tr>';
+      qs('#noteTable').innerHTML='<tr><td colspan="3" class="muted">No project.</td></tr>';
       return;
     }
     currentProjectId = p.id;
@@ -556,6 +585,10 @@
     qs('#planScope').textContent = p.scope || '—';
     qs('#planDates').textContent = `${fmt(p.start)} → ${fmt(p.end)}`;
 
+    // Notes
+    renderNotes(p);
+
+    // Tasks
     const tbody = qs('#taskTable');
     tbody.innerHTML='';
     p.tasks ||= [];
@@ -563,8 +596,8 @@
       const tr = document.createElement('tr');
       tr.dataset.id = t.id;
       tr.innerHTML = `
-        <td contenteditable="true" data-k="title">${t.title}</td>
-        <td contenteditable="true" data-k="assignee">${t.assignee||''}</td>
+        <td contenteditable="true" data-k="title">${esc(t.title)}</td>
+        <td contenteditable="true" data-k="assignee">${esc(t.assignee||'')}</td>
         <td contenteditable="true" data-k="start">${fmt(t.start)}</td>
         <td contenteditable="true" data-k="end">${fmt(t.end)}</td>
         <td contenteditable="true" data-k="pct">${t.pct||0}</td>
@@ -577,6 +610,29 @@
       tbody.appendChild(tr);
     }
     drawGantt(p);
+  }
+
+  function renderNotes(p){
+    const nT = qs('#noteTable');
+    nT.innerHTML = '';
+    p.notes ||= [];
+    if(p.notes.length===0){
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="3" class="muted">No notes yet. Add one.</td>';
+      nT.appendChild(tr);
+      return;
+    }
+    // Sort by date desc for visibility
+    const sorted = [...p.notes].sort((a,b)=> new Date(b.date) - new Date(a.date));
+    sorted.forEach(n=>{
+      const tr = document.createElement('tr');
+      tr.dataset.id = n.id;
+      tr.innerHTML = `
+        <td><input type="date" class="note-date" value="${fmt(n.date)}" data-note-date="${n.id}" /></td>
+        <td contenteditable data-k="text">${esc(n.text||'')}</td>
+        <td><button class="btn ghost" style="padding:6px 10px" title="Delete note" data-del-note="${n.id}">🗑</button></td>`;
+      nT.appendChild(tr);
+    });
   }
 
   function readTableTasks(){
@@ -705,7 +761,62 @@
     drawGantt(p);
   });
 
-  // ---------- RAID view (robust risk editing & delete) ----------
+  // ---------- Project Notes handlers ----------
+  qs('#addNote').addEventListener('click', ()=>{
+    const p = state.projects.find(x=>x.id===currentProjectId);
+    if(!p){ alert('Open a project first.'); return; }
+    qs('#nDate').value = fmt(new Date());
+    qs('#nText').value = '';
+    qs('#noteModal').style.display='flex';
+  });
+  qs('#nCancel').addEventListener('click', ()=> qs('#noteModal').style.display='none');
+  qs('#nSave').addEventListener('click', ()=>{
+    const p = state.projects.find(x=>x.id===currentProjectId); if(!p) return;
+    p.notes ||= [];
+    const note = {
+      id: 'n_'+Math.random().toString(36).slice(2),
+      date: qs('#nDate').value || fmt(new Date()),
+      text: qs('#nText').value.trim()
+    };
+    p.notes.push(note);
+    persist();
+    qs('#noteModal').style.display='none';
+    renderPlan();
+  });
+
+  // Inline edit note text/date
+  document.addEventListener('change', (e)=>{
+    const dateInput = e.target.closest('.note-date');
+    if(dateInput){
+      const id = dateInput.getAttribute('data-note-date');
+      const p = state.projects.find(x=>x.id===currentProjectId); if(!p) return;
+      const n = (p.notes||[]).find(x=>x.id===id); if(!n) return;
+      n.date = dateInput.value || n.date;
+      persist();
+    }
+  });
+  document.addEventListener('focusout', (e)=>{
+    const cell = e.target.closest('#noteTable [data-k="text"]');
+    if(cell){
+      const row = cell.closest('tr[data-id]'); const id=row?.dataset.id;
+      const p = state.projects.find(x=>x.id===currentProjectId); if(!p) return;
+      const n = (p.notes||[]).find(x=>x.id===id); if(!n) return;
+      n.text = cell.textContent.trim();
+      persist();
+    }
+  });
+  document.addEventListener('click', (e)=>{
+    const delBtn = e.target.closest('[data-del-note]');
+    if(delBtn){
+      const id = delBtn.getAttribute('data-del-note');
+      const p = state.projects.find(x=>x.id===currentProjectId); if(!p) return;
+      p.notes = (p.notes||[]).filter(n=> n.id!==id);
+      persist();
+      renderPlan();
+    }
+  });
+
+  // ---------- RAID view (unchanged behavior + Actions column present) ----------
   function renderRAID(){
     const p = state.projects.find(x=>x.id===currentProjectId) || state.projects[0];
     if(!p){
@@ -714,32 +825,30 @@
     }
     currentProjectId = p.id;
 
-    p.risks ||= [];
-    let changed = false;
-    p.risks.forEach(r=>{ if(!r.id){ r.id = 'r_'+Math.random().toString(36).slice(2); changed = true; }});
-    if(changed) persist();
-
+    // Risks
     const rT=qs('#riskTable'); rT.innerHTML='';
+    p.risks ||= [];
     if(p.risks.length===0){
       const tr=document.createElement('tr');
       tr.innerHTML='<td colspan="7" class="muted">No risks yet. Add one below.</td>';
       rT.appendChild(tr);
     } else {
       p.risks.forEach(r=>{
+        r.id ||= 'r_'+Math.random().toString(36).slice(2);
         const tr=document.createElement('tr');
         tr.dataset.id = r.id;
-        tr.innerHTML=`
-          <td contenteditable data-k="title">${r.title||''}</td>
+        tr.innerHTML=`<td contenteditable data-k="title">${esc(r.title||'')}</td>
           <td contenteditable data-k="p">${r.p??2}</td>
           <td contenteditable data-k="i">${r.i??2}</td>
           <td class="exp">${((r.p??2)*(r.i??2))}</td>
-          <td contenteditable data-k="owner">${r.owner||'TBD'}</td>
-          <td contenteditable data-k="status">${r.status||'Open'}</td>
+          <td contenteditable data-k="owner">${esc(r.owner||'TBD')}</td>
+          <td contenteditable data-k="status">${esc(r.status||'Open')}</td>
           <td><button class="btn ghost" style="padding:6px 10px" title="Delete risk" data-del-risk="${r.id}">🗑</button></td>`;
         rT.appendChild(tr);
       });
     }
 
+    // Issues
     const iT=qs('#issueTable'); iT.innerHTML='';
     p.issues ||= [];
     if(p.issues.length===0){
@@ -748,62 +857,20 @@
       iT.appendChild(tr);
     } else {
       p.issues.forEach(it=>{
+        it.id ||= ('i_'+Math.random().toString(36).slice(2));
         const tr=document.createElement('tr');
-        tr.dataset.id = it.id || ('i_'+Math.random().toString(36).slice(2));
-        it.id = tr.dataset.id;
-        tr.innerHTML=`<td contenteditable data-k="title">${it.title||''}</td>
-          <td contenteditable data-k="sev">${it.sev||'Med'}</td>
-          <td contenteditable data-k="owner">${it.owner||'TBD'}</td>
-          <td contenteditable data-k="eta">${it.eta||fmt(new Date())}</td>
-          <td contenteditable data-k="status">${it.status||'Open'}</td>`;
+        tr.dataset.id = it.id;
+        tr.innerHTML=`<td contenteditable data-k="title">${esc(it.title||'')}</td>
+          <td contenteditable data-k="sev">${esc(it.sev||'Med')}</td>
+          <td contenteditable data-k="owner">${esc(it.owner||'TBD')}</td>
+          <td contenteditable data-k="eta">${fmt(it.eta||new Date())}</td>
+          <td contenteditable data-k="status">${esc(it.status||'Open')}</td>`;
         iT.appendChild(tr);
       });
     }
   }
 
-  function syncRisksFromTable(){
-    const p = state.projects.find(x=>x.id===currentProjectId); if(!p) return;
-    const rows = qsa('#riskTable tr[data-id]');
-    if(rows.length===0) return;
-    const byId = {};
-    (p.risks||[]).forEach(r=> byId[r.id]=r);
-    const updated = [];
-    rows.forEach(row=>{
-      const id = row.dataset.id;
-      const base = byId[id] || {id};
-      const obj = {...base};
-      qsa('[data-k]', row).forEach(cell=>{
-        const k = cell.dataset.k;
-        let val = cell.textContent.trim();
-        if(k==='p' || k==='i'){ val = clamp(parseInt(val,10)||2,1,5); }
-        obj[k]=val;
-      });
-      updated.push(obj);
-    });
-    p.risks = updated;
-    persist();
-  }
-  function syncIssuesFromTable(){
-    const p = state.projects.find(x=>x.id===currentProjectId); if(!p) return;
-    const rows = qsa('#issueTable tr');
-    if(rows.length===0) return;
-    const updated = [];
-    rows.forEach(row=>{
-      const cells = qsa('[data-k]', row);
-      if(cells.length===0) return;
-      const id = row.dataset.id || ('i_'+Math.random().toString(36).slice(2));
-      const obj = {id};
-      cells.forEach(c=>{
-        const k=c.dataset.k;
-        let v=c.textContent.trim();
-        obj[k]=v;
-      });
-      updated.push(obj);
-    });
-    p.issues = updated;
-    persist();
-  }
-
+  // Keep exposure live while editing
   document.addEventListener('input', function(e){
     const cell = e.target.closest('#riskTable [data-k]');
     if(!cell) return;
@@ -814,30 +881,57 @@
     const expCell = qs('.exp', row);
     if(expCell) expCell.textContent = pVal*iVal;
   });
+  // Persist risks/issues on blur
   document.addEventListener('focusout', function(e){
-    if(e.target.closest('#riskTable [data-k]')) syncRisksFromTable();
-    if(e.target.closest('#issueTable [data-k]')) syncIssuesFromTable();
+    if(e.target.closest('#riskTable [data-k]')){
+      const p = state.projects.find(x=>x.id===currentProjectId); if(!p) return;
+      const rows = qsa('#riskTable tr[data-id]');
+      const updated = [];
+      rows.forEach(row=>{
+        const id = row.dataset.id;
+        const obj = { id };
+        qsa('[data-k]', row).forEach(cell=>{
+          const k = cell.dataset.k;
+          let v = cell.textContent.trim();
+          if(k==='p' || k==='i') v = clamp(parseInt(v,10)||2,1,5);
+          obj[k]=v;
+        });
+        updated.push(obj);
+      });
+      p.risks = updated; persist();
+    }
+    if(e.target.closest('#issueTable [data-k]')){
+      const p = state.projects.find(x=>x.id===currentProjectId); if(!p) return;
+      const rows = qsa('#issueTable tr[data-id]');
+      const updated = [];
+      rows.forEach(row=>{
+        const id = row.dataset.id;
+        const obj = { id };
+        qsa('[data-k]', row).forEach(cell=>{
+          obj[cell.dataset.k] = cell.textContent.trim();
+        });
+        updated.push(obj);
+      });
+      p.issues = updated; persist();
+    }
   });
-
+  // Risk/Issue/Task deletes
   document.addEventListener('click', function(e){
-    // Add Risk/Issue
-    const riskBtn = e.target.closest('#addRisk');
-    if(riskBtn){
+    // Add Risk
+    if(e.target.closest('#addRisk')){
       const p = state.projects.find(x=>x.id===currentProjectId);
       if(!p){ alert('Open a project first.'); return; }
-      syncRisksFromTable();
-      if(!Array.isArray(p.risks)) p.risks = [];
+      p.risks ||= [];
       p.risks.push({ id:'r_'+Math.random().toString(36).slice(2), title:'New Risk', p:2, i:2, owner:'TBD', status:'Open' });
       persist();
       renderRAID();
       return;
     }
-    const issueBtn = e.target.closest('#addIssue');
-    if(issueBtn){
+    // Add Issue
+    if(e.target.closest('#addIssue')){
       const p = state.projects.find(x=>x.id===currentProjectId);
       if(!p){ alert('Open a project first.'); return; }
-      syncIssuesFromTable();
-      if(!Array.isArray(p.issues)) p.issues = [];
+      p.issues ||= [];
       p.issues.push({ id:'i_'+Math.random().toString(36).slice(2), title:'New Issue', sev:'Med', owner:'TBD', eta:fmt(new Date()), status:'Open' });
       persist();
       renderRAID();
@@ -867,12 +961,23 @@
     }
   });
 
-  // Status Auto-Draft
+  // Status Auto-Draft (now includes notes)
+  function weekBounds(dateStr){
+    const d = dateStr ? new Date(dateStr) : new Date();
+    // Monday as start of week
+    const day = (d.getDay()+6)%7; // 0 = Monday
+    const start = new Date(d); start.setDate(d.getDate()-day);
+    const end = new Date(start); end.setDate(start.getDate()+6);
+    return [start, end];
+  }
+
   qs('#autoDraft').addEventListener('click',()=>{
     const p = state.projects.find(x=>x.id===currentProjectId) || state.projects[0];
     if(!p){ alert('No project selected.'); return; }
     const audience = qs('#audience').value;
     const week = qs('#weekOf').value || fmt(new Date());
+    const [wStart, wEnd] = weekBounds(week);
+
     const total = (p.tasks||[]).length || 1;
     const done = (p.tasks||[]).filter(t=> (t.pct||0)>=100).length;
     const overdue = (p.tasks||[]).filter(t=> new Date(t.end) < new Date() && (t.pct||0)<100).length;
@@ -880,16 +985,35 @@
     const rag = projectRAG(p);
     const tone = audience==='exec' ? 'Concise update for sponsors:' : 'Team-focused update:';
 
+    // Notes for selected week (fallback to 3 most recent if no week selected)
+    const notesAll = p.notes||[];
+    const notesInWeek = notesAll.filter(n=>{
+      if(!n.date) return false;
+      const d = new Date(n.date);
+      return d>=wStart && d<=wEnd;
+    });
+    const recentNotes = notesInWeek.length ? notesInWeek
+      : notesAll.sort((a,b)=> new Date(b.date)-new Date(a.date)).slice(0,3);
+
     const lines = [];
     lines.push(`${tone} Week of ${week}. Overall status: ${rag.toUpperCase()}.`);
     lines.push(`Progress: ${done}/${total} tasks complete (${Math.round(done/total*100)}%). ${overdue} overdue.`);
     if(riskOpen>0) lines.push(`Risks: ${riskOpen} open; top exposures under mitigation.`);
 
+    // Next milestones (next 3 by end date)
     const upcoming = (p.tasks||[]).filter(t=> (t.pct||0)<100).sort((a,b)=> new Date(a.end)-new Date(b.end)).slice(0,3);
     if(upcoming.length){
       lines.push('Next milestones:');
       upcoming.forEach(t=> lines.push(`• ${t.title} → ${fmt(t.end)}`));
     }
+
+    // Notes section
+    if(recentNotes.length){
+      const label = notesInWeek.length ? 'Notes this week:' : 'Recent notes:';
+      lines.push(label);
+      recentNotes.forEach(n=> lines.push(`• [${fmt(n.date)}] ${n.text||''}`));
+    }
+
     if(audience==='exec'){
       const high = (p.risks||[]).some(r=> ((r.p||2)*(r.i||2)) >=9);
       const needs = [];
