@@ -95,13 +95,17 @@
     .gantt-tick-label { position:absolute; transform:translateX(-50%); white-space:nowrap; }
     .gantt-tick-line { position:absolute; top:36px; bottom:12px; width:1px; background:rgba(255,255,255,.08); }
     .gantt-today { position:absolute; top:16px; bottom:16px; width:2px; background:var(--bad); opacity:.95; }
-    .bar .bar-progress {
-      position:absolute; left:0; top:0; bottom:0;
-      background:rgba(0,0,0,.15);
-      border-radius:8px;
-      pointer-events:none;
-    }
+    .bar .bar-progress { position:absolute; left:0; top:0; bottom:0; background:rgba(0,0,0,.15); border-radius:8px; pointer-events:none; }
     .bar:hover { outline:1px dashed rgba(255,255,255,.2); }
+
+    /* --- To-Do Notepad --- */
+    .todo-list { list-style:none; margin:10px 0 0; padding:0; }
+    .todo-item { display:flex; align-items:center; gap:10px; padding:8px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.03); border-radius:10px; }
+    .todo-item + .todo-item { margin-top:8px; }
+    .todo-text { flex:1; outline:none; }
+    .todo-item.done .todo-text { text-decoration: line-through; opacity:.7; }
+    .todo-date { width:140px; }
+    .todo-actions { display:flex; gap:6px; }
   </style>
 </head>
 <body>
@@ -162,6 +166,28 @@
             <div class="rag"><span class="dot warn"></span> Amber</div>
             <div class="rag"><span class="dot bad"></span> Red</div>
           </div>
+          <!-- To-Do Notepad -->
+          <div class="card">
+            <h3>To-Do Notepad</h3>
+            <div class="muted">Today: <b id="todoToday">—</b></div>
+            <div class="row" style="margin-top:8px">
+              <div class="col"><input id="todoInput" placeholder="e.g., Schedule stakeholder review"/></div>
+              <div class="col" style="max-width:180px"><label>For Date<input type="date" id="todoDate"/></label></div>
+              <button class="btn" id="todoAdd">＋ Add</button>
+            </div>
+            <!-- NEW: Day filter -->
+            <div class="row" style="margin-top:8px; align-items:flex-end">
+              <div class="col" style="max-width:180px">
+                <label>View Date<input type="date" id="todoFilterDate"/></label>
+              </div>
+              <label class="muted" style="display:flex; align-items:center; gap:6px">
+                <input type="checkbox" id="todoShowAll"/> Show all
+              </label>
+              <div class="spacer"></div>
+              <div id="todoFilterHint" class="muted"></div>
+            </div>
+            <ul id="todoList" class="todo-list"></ul>
+          </div>
         </div>
       </section>
 
@@ -183,7 +209,7 @@
             <div class="col"><label>Start Date<input id="pStart" type="date"/></label></div>
             <div class="col"><label>Target End<input id="pEnd" type="date"/></label></div>
           </div>
-          <label>Goals & Scope<textarea id="pScope" rows="5" placeholder="Describe goals, scope, constraints, integrations…"></textarea></label>
+            <label>Goals & Scope<textarea id="pScope" rows="5" placeholder="Describe goals, scope, constraints, integrations…"></textarea></label>
           <label>Stakeholders (comma-separated)<input id="pStake" placeholder="John, Jane, Jim"/></label>
           <div class="row" style="margin-top:8px">
             <button class="btn acc" id="btnGen">⚡ Generate Draft Plan</button>
@@ -368,6 +394,9 @@
   const state = JSON.parse(localStorage.getItem('plancraft')||'{}');
   state.projects ||= [];
   state.prefs ||= {accent:'#d9a6c1', motivation:'✨ You\'ve got this.'};
+  state.todos ||= [];                // global To-Do list
+  state.todoFilterDate ??= null;     // selected date filter (string YYYY-MM-DD or null)
+  state.todoShowAll ??= false;       // show all regardless of date
   let currentProjectId = state.projects[0]?.id || null;
 
   // Utility
@@ -377,7 +406,6 @@
   const daysBetween=(a,b)=> Math.max(1, Math.round((new Date(b)-new Date(a))/86400000));
   const clamp=(n,min,max)=>Math.min(Math.max(n,min),max);
   const esc = s => (s||'').replace(/[&<>\"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;' }[c]));
-  // NEW: small helpers for the upgraded Gantt
   function fmtMD(d){ const m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; const dt=new Date(d); return `${m[dt.getMonth()]} ${dt.getDate()}`; }
   function makeTicks(minDate, maxDate, target=8){
     const min = new Date(minDate), max = new Date(maxDate);
@@ -390,10 +418,11 @@
     else                 step = 1;
     const ticks = [];
     const t = new Date(min);
-    if(step===7){ t.setDate(t.getDate() - ((t.getDay()+6)%7)); } // align to Monday
+    if(step===7){ t.setDate(t.getDate() - ((t.getDay()+6)%7)); }
     while(t <= max){ ticks.push(new Date(t)); t.setDate(t.getDate()+step); }
     return ticks;
   }
+  function fmtLong(d){ return new Date(d).toLocaleDateString(undefined,{weekday:'short', year:'numeric', month:'short', day:'numeric'}); }
 
   // Navigation
   qsa('[data-view]').forEach(item=> item.addEventListener('click',()=> showView(item.dataset.view)) );
@@ -436,50 +465,183 @@
     const list = state.projects.filter(p=> !p.archived);
     if(list.length===0){
       grid.innerHTML = `<div class="card" style="grid-column:1/-1"><h3>Welcome</h3><p class="muted">No active projects. Create one in <b>New Project</b> or check <b>Archived Projects</b>.</p></div>`;
-      return;
-    }
-    list.forEach(p=>{
-      const complete = Math.round((p.tasks?.reduce((a,t)=>a+(t.pct||0),0)/(p.tasks?.length||1))||0);
-      const rag = projectRAG(p);
-      const el = document.createElement('div');
-      el.className='card';
-      el.innerHTML = `
-        <div style="display:flex; align-items:center; gap:12px; justify-content:space-between">
-          <div style="display:flex; align-items:center; gap:12px">
-            <div class="ring" style="--p:${complete}"><span>${complete}%</span></div>
-            <div>
-              <h3 style="margin:0">${p.name}</h3>
-              <div class="muted">Sponsor: ${p.sponsor||'—'} · PM: ${p.pm||'—'}</div>
+    } else {
+      list.forEach(p=>{
+        const complete = Math.round((p.tasks?.reduce((a,t)=>a+(t.pct||0),0)/(p.tasks?.length||1))||0);
+        const rag = projectRAG(p);
+        const el = document.createElement('div');
+        el.className='card';
+        el.innerHTML = `
+          <div style="display:flex; align-items:center; gap:12px; justify-content:space-between">
+            <div style="display:flex; align-items:center; gap:12px">
+              <div class="ring" style="--p:${complete}"><span>${complete}%</span></div>
+              <div>
+                <h3 style="margin:0">${p.name}</h3>
+                <div class="muted">Sponsor: ${p.sponsor||'—'} · PM: ${p.pm||'—'}</div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px">
+              <div class="rag"><span class="dot ${rag}"></span> ${rag.toUpperCase()}</div>
+              <button class="btn ghost" data-arch="${p.id}">Archive</button>
             </div>
           </div>
-          <div style="display:flex; align-items:center; gap:8px">
-            <div class="rag"><span class="dot ${rag}"></span> ${rag.toUpperCase()}</div>
-            <button class="btn ghost" data-arch="${p.id}">Archive</button>
+          <div class="kpi" style="margin-top:10px">
+            <div class="bubble">Start <b>${fmt(p.start)}</b></div>
+            <div class="bubble">End <b>${fmt(p.end)}</b></div>
+            <div class="bubble">Tasks <b>${p.tasks?.length||0}</b></div>
           </div>
-        </div>
-        <div class="kpi" style="margin-top:10px">
-          <div class="bubble">Start <b>${fmt(p.start)}</b></div>
-          <div class="bubble">End <b>${fmt(p.end)}</b></div>
-          <div class="bubble">Tasks <b>${p.tasks?.length||0}</b></div>
-        </div>
-        <div style="margin-top:10px; display:flex; gap:8px">
-          <button class="btn" data-open="plan">Open Plan</button>
-          <button class="btn ghost" data-open="raid">RAID</button>
-        </div>`;
-      qsa('[data-open]', el).forEach(b=> b.addEventListener('click',()=>{ currentProjectId=p.id; showView(b.dataset.open)}));
-      el.querySelector('[data-arch]').addEventListener('click', (e)=>{
-        const proj = state.projects.find(x=>x.id===e.currentTarget.dataset.arch);
-        if(!proj) return;
-        proj.archived = true;
-        persist();
-        renderDashboard();
+          <div style="margin-top:10px; display:flex; gap:8px">
+            <button class="btn" data-open="plan">Open Plan</button>
+            <button class="btn ghost" data-open="raid">RAID</button>
+          </div>`;
+        qsa('[data-open]', el).forEach(b=> b.addEventListener('click',()=>{ currentProjectId=p.id; showView(b.dataset.open)}));
+        el.querySelector('[data-arch]').addEventListener('click', (e)=>{
+          const proj = state.projects.find(x=>x.id===e.currentTarget.dataset.arch);
+          if(!proj) return;
+          proj.archived = true;
+          persist();
+          renderDashboard();
+        });
+        grid.appendChild(el);
       });
-      grid.appendChild(el);
-    });
+    }
     qs('#kpiMilestones').textContent = `${Math.round(avgOnTime()*100)}%`;
     qs('#kpiRisks').textContent = state.projects.reduce((a,p)=> a + (p.risks?.length||0), 0);
     qs('#kpiDecisions').textContent = state.projects.reduce((a,p)=> a + (p.decisions?.length||0), 0);
+
+    // To-Do UI
+    renderTodos();
   }
+
+  // --- To-Do Notepad logic ---
+  function sortTodos(arr){
+    // Incomplete first; then by date (asc); then by created (asc)
+    return [...arr].sort((a,b)=>{
+      if((a.done?1:0)!==(b.done?1:0)) return (a.done?1:0)-(b.done?1:0);
+      const da = a.date||'', db=b.date||'';
+      if(da!==db) return da<db?-1:1;
+      return (a.created||0)-(b.created||0);
+    });
+  }
+
+  function renderTodos(){
+    const todayStr = fmt(new Date());
+    if(qs('#todoToday')) qs('#todoToday').textContent = new Date().toLocaleDateString(undefined,{weekday:'short', month:'short', day:'numeric', year:'numeric'});
+    if(qs('#todoDate') && !qs('#todoDate').value) qs('#todoDate').value = todayStr;
+
+    // Initialize filter defaults once
+    if(state.todoFilterDate===null) state.todoFilterDate = todayStr;
+
+    // Sync filter controls from state
+    const filterInput = qs('#todoFilterDate');
+    const showAllCb   = qs('#todoShowAll');
+    if(filterInput) filterInput.value = state.todoFilterDate || '';
+    if(showAllCb)   showAllCb.checked = !!state.todoShowAll;
+
+    // Render hint
+    const hint = qs('#todoFilterHint');
+    if(hint){
+      hint.textContent = state.todoShowAll ? 'Showing all to-dos' :
+        (state.todoFilterDate ? `Showing ${new Date(state.todoFilterDate).toLocaleDateString()}` : 'No date selected');
+    }
+
+    const listEl = qs('#todoList'); if(!listEl) return;
+    listEl.innerHTML = '';
+
+    const filterDate = state.todoShowAll ? null : (state.todoFilterDate || null);
+    let items = sortTodos(state.todos||[]);
+    if(filterDate) items = items.filter(t => (t.date||'') === filterDate);
+
+    if(items.length===0){
+      const li = document.createElement('li');
+      li.className='muted';
+      li.style.marginTop='8px';
+      li.textContent = filterDate ? 'No to-dos for the selected date.' : 'No to-dos yet. Add something above.';
+      listEl.appendChild(li);
+      return;
+    }
+    items.forEach(t=>{
+      const li = document.createElement('li');
+      li.className = 'todo-item' + (t.done?' done':'');
+      li.dataset.id = t.id;
+      li.innerHTML = `
+        <input type="checkbox" class="todo-done" ${t.done?'checked':''} title="Mark complete"/>
+        <div class="todo-text" contenteditable="true">${esc(t.text||'')}</div>
+        <input type="date" class="todo-date" value="${fmt(t.date||new Date())}" title="Date"/>
+        <div class="todo-actions">
+          <button class="btn ghost" style="padding:6px 10px" title="Delete" data-del-todo="${t.id}">🗑</button>
+        </div>`;
+      listEl.appendChild(li);
+    });
+  }
+
+  // Add To-Do
+  document.addEventListener('click', (e)=>{
+    if(e.target.id==='todoAdd'){
+      const text = (qs('#todoInput')?.value||'').trim();
+      const date = qs('#todoDate')?.value || fmt(new Date());
+      if(!text){ alert('Please enter a to-do.'); return; }
+      state.todos ||= [];
+      state.todos.push({ id:'td_'+Math.random().toString(36).slice(2), text, date, done:false, created: Date.now() });
+      persist();
+      if(qs('#todoInput')) qs('#todoInput').value='';
+      if(qs('#todoDate')) qs('#todoDate').value=fmt(new Date());
+      // If current view is not "show all", auto-jump the filter to the item's date for quicker feedback
+      if(!state.todoShowAll){ state.todoFilterDate = date; }
+      renderTodos();
+    }
+  });
+  // Enter to add
+  document.addEventListener('keydown', (e)=>{
+    if(e.target.id==='todoInput' && e.key==='Enter'){
+      e.preventDefault();
+      qs('#todoAdd')?.click();
+    }
+  });
+  // Toggle done & inline date change
+  document.addEventListener('change', (e)=>{
+    const cb = e.target.closest('.todo-done');
+    if(cb){
+      const li = e.target.closest('.todo-item'); const id = li?.dataset.id;
+      const item = (state.todos||[]).find(x=>x.id===id); if(!item) return;
+      item.done = cb.checked; persist(); renderTodos();
+    }
+    const dateEl = e.target.closest('.todo-date');
+    if(dateEl){
+      const li = e.target.closest('.todo-item'); const id = li?.dataset.id;
+      const item = (state.todos||[]).find(x=>x.id===id); if(!item) return;
+      item.date = dateEl.value || item.date; persist(); renderTodos();
+    }
+    // Filter controls
+    if(e.target.id==='todoFilterDate'){
+      state.todoFilterDate = e.target.value || null; persist(); renderTodos();
+    }
+    if(e.target.id==='todoShowAll'){
+      state.todoShowAll = !!e.target.checked; persist(); renderTodos();
+    }
+  });
+  // Edit text blur
+  document.addEventListener('focusout', (e)=>{
+    const t = e.target.closest('.todo-text');
+    if(t){
+      const li = t.closest('.todo-item'); const id = li?.dataset.id;
+      const item = (state.todos||[]).find(x=>x.id===id); if(!item) return;
+      item.text = t.textContent.trim();
+      if(!item.text){ // if emptied, delete it
+        state.todos = state.todos.filter(x=>x.id!==id);
+      }
+      persist(); renderTodos();
+    }
+  });
+  // Delete
+  document.addEventListener('click', (e)=>{
+    const del = e.target.closest('[data-del-todo]');
+    if(del){
+      const id = del.getAttribute('data-del-todo');
+      state.todos = (state.todos||[]).filter(t=> t.id!==id);
+      persist(); renderTodos();
+    }
+  });
 
   // Archived view
   function renderArchived(){
@@ -677,7 +839,7 @@
     }).filter(Boolean);
   }
 
-  // NEW drawGantt with axis, grid, today marker, and progress overlay
+  // Gantt with axis, grid, today marker, and progress overlay
   function drawGantt(p){
     const box = qs('#gantt');
     box.innerHTML='';
