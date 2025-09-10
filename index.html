@@ -334,33 +334,42 @@
         </div>
       </section>
 
-      <!-- RAID -->
-      <section id="view-raid" class="section hidden">
-        <div class="card" style="margin-bottom:16px">
-  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px">
-    <div>
-      <div class="muted" style="font-size:12px">RAID for</div>
-      <h3 style="margin:4px 0 0" id="raidProjectName">—</h3>
+<!-- RAID -->
+<section id="view-raid" class="section hidden">
+  <!-- Project header shows current project & edit button -->
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px">
+      <div>
+        <div class="muted" style="font-size:12px">RAID for</div>
+        <h3 style="margin:4px 0 0" id="raidProjectName">—</h3>
+      </div>
+      <!-- Optional: add an edit button here later if you want -->
+      <!-- <button class="btn" id="editRaidProjectTitle" title="Edit project title">✏️ Edit Title</button> -->
     </div>
   </div>
-</div>
-        <div class="card">
-          <h3>Risks</h3>
-          <table>
-            <thead><tr><th>Title</th><th>P</th><th>I</th><th>Exposure</th><th>Owner</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody id="riskTable"></tbody>
-          </table>
-          <button class="btn" id="addRisk">＋ Add Risk</button>
-        </div>
-        <div class="card">
-          <h3>Issues</h3>
-          <table>
-            <thead><tr><th>Title</th><th>Severity</th><th>Owner</th><th>ETA</th><th>Status</th></tr></thead>
-            <tbody id="issueTable"></tbody>
-          </table>
-          <button class="btn" id="addIssue">＋ Add Issue</button>
-        </div>
-      </section>
+
+  <div class="card">
+    <h3>Risks</h3>
+    <table>
+      <thead>
+        <tr><th>Title</th><th>P</th><th>I</th><th>Exposure</th><th>Owner</th><th>Status</th><th>Actions</th></tr>
+      </thead>
+      <tbody id="riskTable"></tbody>
+    </table>
+    <button class="btn" id="addRisk">＋ Add Risk</button>
+  </div>
+
+  <div class="card">
+    <h3>Issues</h3>
+    <table>
+      <thead>
+        <tr><th>Title</th><th>Severity</th><th>Owner</th><th>ETA</th><th>Status</th></tr>
+      </thead>
+      <tbody id="issueTable"></tbody>
+    </table>
+    <button class="btn" id="addIssue">＋ Add Issue</button>
+  </div>
+</section>
 
       <!-- STATUS -->
       <section id="view-status" class="section hidden">
@@ -1182,23 +1191,6 @@
       renderPlan();
     }
   });
-
- // ---------- RAID view ----------
-function renderRAID(){
-  const p = state.projects.find(x=> x.id === currentProjectId) || state.projects[0];
-
-  // Update header safely (even if no project yet)
-  const nameEl = qs('#raidProjectName');
-
-  if(!p){
-    if (nameEl) nameEl.textContent = '—';
-    ['riskTable','issueTable'].forEach(id=> qs('#'+id).innerHTML =
-      '<tr><td colspan="7" class="muted">No project.</td></tr>');
-    return;
-  }
-
-  currentProjectId = p.id;
-  if (nameEl) nameEl.textContent = p.name || 'Untitled Project';
 
   // Risks
   const rT = qs('#riskTable'); rT.innerHTML = '';
