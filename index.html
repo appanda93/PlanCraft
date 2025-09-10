@@ -1183,37 +1183,67 @@
     }
   });
 
-  // ---------- RAID view ----------
-  function renderRAID(){
-    const p = state.projects.find(x=>x.id===currentProjectId) || state.projects[0];
-    if(!p){
-      ['riskTable','issueTable'].forEach(id=> qs('#'+id).innerHTML='<tr><td colspan="7" class="muted">No project.</td></tr>');
-      return;
-    }
-    currentProjectId = p.id;
-qs('#raidProjectName').textContent = p.name || 'Untitled Project';
-    // Risks
-    const rT=qs('#riskTable'); rT.innerHTML='';
-    p.risks ||= [];
-    if(p.risks.length===0){
+ // ---------- RAID view ----------
+function renderRAID(){
+  const p = state.projects.find(x=> x.id === currentProjectId) || state.projects[0];
+
+  // Update header safely (even if no project yet)
+  const nameEl = qs('#raidProjectName');
+
+  if(!p){
+    if (nameEl) nameEl.textContent = '—';
+    ['riskTable','issueTable'].forEach(id=> qs('#'+id).innerHTML =
+      '<tr><td colspan="7" class="muted">No project.</td></tr>');
+    return;
+  }
+
+  currentProjectId = p.id;
+  if (nameEl) nameEl.textContent = p.name || 'Untitled Project';
+
+  // Risks
+  const rT = qs('#riskTable'); rT.innerHTML = '';
+  p.risks ||= [];
+  if (p.risks.length === 0){
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td colspan="7" class="muted">No risks yet. Add one below.</td>';
+    rT.appendChild(tr);
+  } else {
+    p.risks.forEach(r=>{
+      r.id ||= 'r_'+Math.random().toString(36).slice(2);
       const tr=document.createElement('tr');
-      tr.innerHTML='<td colspan="7" class="muted">No risks yet. Add one below.</td>';
+      tr.dataset.id = r.id;
+      tr.innerHTML = `<td contenteditable data-k="title">${esc(r.title||'')}</td>
+        <td contenteditable data-k="p">${r.p??2}</td>
+        <td contenteditable data-k="i">${r.i??2}</td>
+        <td class="exp">${((r.p??2)*(r.i??2))}</td>
+        <td contenteditable data-k="owner">${esc(r.owner||'TBD')}</td>
+        <td contenteditable data-k="status">${esc(r.status||'Open')}</td>
+        <td><button class="btn ghost" style="padding:6px 10px" title="Delete risk" data-del-risk="${r.id}">🗑</button></td>`;
       rT.appendChild(tr);
-    } else {
-      p.risks.forEach(r=>{
-        r.id ||= 'r_'+Math.random().toString(36).slice(2);
-        const tr=document.createElement('tr');
-        tr.dataset.id = r.id;
-        tr.innerHTML=`<td contenteditable data-k="title">${esc(r.title||'')}</td>
-          <td contenteditable data-k="p">${r.p??2}</td>
-          <td contenteditable data-k="i">${r.i??2}</td>
-          <td class="exp">${((r.p??2)*(r.i??2))}</td>
-          <td contenteditable data-k="owner">${esc(r.owner||'TBD')}</td>
-          <td contenteditable data-k="status">${esc(r.status||'Open')}</td>
-          <td><button class="btn ghost" style="padding:6px 10px" title="Delete risk" data-del-risk="${r.id}">🗑</button></td>`;
-        rT.appendChild(tr);
-      });
-    }
+    });
+  }
+
+  // Issues (unchanged)
+  const iT=qs('#issueTable'); iT.innerHTML='';
+  p.issues ||= [];
+  if(p.issues.length===0){
+    const tr=document.createElement('tr');
+    tr.innerHTML='<td colspan="5" class="muted">No issues yet. Add one below.</td>';
+    iT.appendChild(tr);
+  } else {
+    p.issues.forEach(it=>{
+      it.id ||= ('i_'+Math.random().toString(36).slice(2));
+      const tr=document.createElement('tr');
+      tr.dataset.id = it.id;
+      tr.innerHTML=`<td contenteditable data-k="title">${esc(it.title||'')}</td>
+        <td contenteditable data-k="sev">${esc(it.sev||'Med')}</td>
+        <td contenteditable data-k="owner">${esc(it.owner||'TBD')}</td>
+        <td contenteditable data-k="eta">${fmt(it.eta||new Date())}</td>
+        <td contenteditable data-k="status">${esc(it.status||'Open')}</td>`;
+      iT.appendChild(tr);
+    });
+  }
+}
 
     // Issues
     const iT=qs('#issueTable'); iT.innerHTML='';
