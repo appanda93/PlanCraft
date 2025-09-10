@@ -29,13 +29,11 @@
     html,body{height:100%}
     body{margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text);}
     a{color:var(--accent)}
-
     /* Layout */
     .app{display:grid; grid-template-columns: 260px 1fr; grid-template-rows: 64px minmax(0,1fr); grid-template-areas:"aside header" "aside main"; height:100%}
     header{grid-area:header; display:flex; align-items:center; gap:16px; padding:0 20px; background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0)); border-bottom:1px solid rgba(255,255,255,.06)}
     aside{grid-area:aside; padding:18px; border-right:1px solid rgba(255,255,255,.06)}
     main{grid-area:main; padding:22px; overflow:auto}
-
     /* Header */
     .brand{display:flex; align-items:center; gap:12px; font-weight:700; letter-spacing:.3px}
     .logo{width:34px; height:34px; background:radial-gradient(60% 60% at 40% 35%, var(--accent), transparent 60%), radial-gradient(60% 60% at 70% 65%, var(--accent-2), transparent 60%), #1b2030; border-radius:10px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.06), var(--shadow)}
@@ -47,14 +45,12 @@
     .btn.ghost{background:transparent; border-color:rgba(255,255,255,.12)}
     .select, input, textarea{width:100%; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.12); color:var(--text); padding:10px 12px; border-radius:10px; outline:none}
     input:focus, textarea:focus, select:focus{box-shadow:var(--ring)}
-
     /* Sidebar */
     nav{display:flex; flex-direction:column; gap:6px}
     .nav-item{display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; color:var(--muted); cursor:pointer}
     .nav-item:hover{background:rgba(255,255,255,.04)}
     .nav-item.active{background:linear-gradient(180deg, rgba(217,166,193,.18), rgba(217,166,193,.06)); color:var(--text); border:1px solid rgba(217,166,193,.30)}
     .aside-card{background:var(--panel); border:1px solid rgba(255,255,255,.06); border-radius:var(--radius); padding:12px; box-shadow:var(--shadow); margin-top:16px}
-
     /* Cards & sections */
     .section{display:flex; flex-direction:column; gap:14px}
     .grid{display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:16px}
@@ -63,40 +59,33 @@
     .muted{color:var(--muted)}
     .kpi{display:flex; gap:14px}
     .kpi .bubble{padding:8px 10px; border-radius:10px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); font-size:12px}
-
     /* Progress ring */
     .ring{--p:65; width:56px; height:56px; border-radius:50%; background:conic-gradient(var(--accent) calc(var(--p)*1%), rgba(255,255,255,.08) 0); display:grid; place-items:center}
     .ring span{font-size:12px}
-
     /* Tables */
     table{width:100%; border-collapse:separate; border-spacing:0 8px}
     th{color:var(--muted); font-weight:600; text-align:left; font-size:12px}
     td{background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); padding:10px; border-radius:8px; vertical-align:top}
-
     /* Gantt */
     .gantt{position:relative; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:16px; overflow:auto}
     .bar{position:relative; height:28px; border-radius:8px; background:linear-gradient(90deg, var(--accent-2), var(--accent)); display:flex; align-items:center; padding-left:8px; font-size:12px; color:#0e1116; overflow:hidden}
     .bar + .bar{margin-top:8px}
+    /* NEW: milestone star inside bars */
+    .bar.milestone .star{font-size:12px; margin-right:6px; line-height:1; filter:drop-shadow(0 1px 0 rgba(255,255,255,.25))}
     .legend{display:flex; gap:10px; font-size:12px; color:var(--muted)}
     .rag{display:inline-flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.12)}
     .dot{width:8px; height:8px; border-radius:50%}
     .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)}
-
     /* Modal */
     .modal{position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; padding:20px}
     .modal .sheet{max-width:760px; width:100%; background:var(--panel); border:1px solid rgba(255,255,255,.08); border-radius:16px; box-shadow:var(--shadow); padding:18px}
-
     /* Confetti-ish sparkles */
     .sparkles{position:fixed; pointer-events:none; inset:0; display:none}
     .sparkles i{position:absolute; width:6px; height:6px; background:currentColor; transform:translate(-50%,-50%); border-radius:2px; opacity:.9}
-
     /* Utilities */
     .row{display:flex; gap:12px}
     .col{flex:1}
     .hidden{display:none}
-
-    /* === IMPORTANT: Default desktop rule (placed BEFORE mobile media query) === */
-    header .menu-btn{ display: none; }
 
     /* --- Responsive: Off-canvas sidebar on mobile --- */
     @media (max-width: 900px){
@@ -134,6 +123,8 @@
       /* Show the menu button on mobile */
       header .menu-btn{ display: inline-flex; }
     }
+    /* Hidden by default on desktop */
+    header .menu-btn{ display: none; }
 
     /* --- Gantt Upgrades --- */
     .gantt { position:relative; padding-top:42px; } /* room for axis labels */
@@ -314,10 +305,23 @@
           <div class="card col">
             <h3>Work Breakdown</h3>
             <table>
-              <thead><tr><th>Task</th><th>Assignee</th><th>Start</th><th>End</th><th>%</th><th>Actions</th></tr></thead>
+              <thead>
+                <tr>
+                  <th style="width:90px">Milestone</th>
+                  <th>Task</th>
+                  <th>Assignee</th>
+                  <th>Start</th>
+                  <th>End</th>
+                  <th>%</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
               <tbody id="taskTable"></tbody>
             </table>
             <div class="row"><button class="btn" id="addTask">＋ Add Task</button><button class="btn ghost" id="recalc">↻ Recalculate Timeline</button></div>
+            <!-- Place next to Add Task / Recalculate -->
+            <button class="btn" id="exportWBS">⬇️ Export to Excel</button>
+
           </div>
           <div class="card col">
             <h3>Timeline (Mini Gantt)</h3>
@@ -574,12 +578,33 @@
         grid.appendChild(el);
       });
     }
-    qs('#kpiMilestones').textContent = `${Math.round(avgOnTime()*100)}%`;
+
+    // --- KPI: On-time milestones (only considers tasks with isMilestone === true)
+    const msRatio = milestoneOnTimeRatio();
+    qs('#kpiMilestones').textContent = (msRatio === null) ? '—' : `${Math.round(msRatio*100)}%`;
+
+    // Risks (unchanged; counts all risks as before)
     qs('#kpiRisks').textContent = state.projects.reduce((a,p)=> a + (p.risks?.length||0), 0);
+
+    // Decisions (still based on decisions array)
     qs('#kpiDecisions').textContent = state.projects.reduce((a,p)=> a + (p.decisions?.length||0), 0);
 
     // To-Do UI
     renderTodos();
+  }
+
+  // --- Milestone KPI helper ---
+  function milestoneOnTimeRatio(){
+    const today = new Date();
+    const ratios = state.projects.map(p => {
+      const ms = (p.tasks || []).filter(t => t.isMilestone);
+      if (ms.length === 0) return null;
+      const late = ms.filter(t => new Date(t.end) < today && (t.pct || 0) < 100).length;
+      return 1 - (late / ms.length);
+    }).filter(v => v !== null);
+
+    if (ratios.length === 0) return null; // no milestones across all projects
+    return ratios.reduce((a,b)=>a+b,0) / ratios.length;
   }
 
   // --- To-Do Notepad logic ---
@@ -810,7 +835,8 @@
       title, assignee,
       start: fmt(new Date(new Date(p.start).getTime()+offset*86400000)),
       end: fmt(new Date(new Date(p.start).getTime()+(offset+len)*86400000)),
-      pct: 0
+      pct: 0,
+      isMilestone: false
     });
     const tasks=[
       mk('Initiation & Charter', 0, bucket),
@@ -836,7 +862,7 @@
       qs('#planPM').textContent = '—';
       qs('#planScope').textContent = '—';
       qs('#planDates').textContent = '—';
-      qs('#taskTable').innerHTML='<tr><td colspan="6" class="muted">No project. Create one in New Project.</td></tr>';
+      qs('#taskTable').innerHTML='<tr><td colspan="7" class="muted">No project. Create one in New Project.</td></tr>';
       qs('#noteTable').innerHTML='<tr><td colspan="3" class="muted">No project.</td></tr>';
       return;
     }
@@ -858,6 +884,9 @@
       const tr = document.createElement('tr');
       tr.dataset.id = t.id;
       tr.innerHTML = `
+        <td style="text-align:center">
+          <input type="checkbox" class="t-milestone" ${t.isMilestone ? 'checked' : ''} title="Mark as milestone"/>
+        </td>
         <td contenteditable="true" data-k="title">${esc(t.title)}</td>
         <td contenteditable="true" data-k="assignee">${esc(t.assignee||'')}</td>
         <td contenteditable="true" data-k="start">${fmt(t.start)}</td>
@@ -868,7 +897,7 @@
     });
     if(p.tasks.length===0){
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td colspan="6" class="muted">No tasks yet. Add one.</td>`;
+      tr.innerHTML = `<td colspan="7" class="muted">No tasks yet. Add one.</td>`;
       tbody.appendChild(tr);
     }
     drawGantt(p);
@@ -956,6 +985,15 @@
       bar.style.width = width+'%';
       bar.title = `${t.title}\n${fmt(t.start)} → ${fmt(t.end)}\nAssignee: ${t.assignee||'—'}\n${t.pct||0}% complete`;
       bar.textContent = t.title;
+
+      // ⭐ Add milestone star
+      if (t.isMilestone) {
+        bar.classList.add('milestone');
+        const star = document.createElement('span');
+        star.className = 'star';
+        star.textContent = '⭐';
+        bar.prepend(star);
+      }
 
       const pct = Math.max(0, Math.min(100, t.pct||0));
       const prog = document.createElement('span');
@@ -1045,7 +1083,8 @@
       assignee: qs('#mAssignee').value||'TBD',
       start: qs('#mStart').value||fmt(new Date()),
       end: qs('#mEnd').value||fmt(new Date()),
-      pct: clamp(parseInt(qs('#mPct').value||'0',10),0,100)
+      pct: clamp(parseInt(qs('#mPct').value||'0',10),0,100),
+      isMilestone: false
     });
     persist();
     qs('#taskModal').style.display='none';
@@ -1058,6 +1097,22 @@
     const edited = readTableTasks();
     p.tasks = edited.map((t,i)=> ({...p.tasks[i], ...t}));
     persist();
+    drawGantt(p);
+  });
+
+  // ---------- Milestone toggle persist ----------
+  document.addEventListener('change', (e) => {
+    const box = e.target.closest('.t-milestone');
+    if (!box) return;
+    const row = box.closest('tr[data-id]');
+    const id = row?.dataset.id;
+    const p = state.projects.find(x => x.id === currentProjectId);
+    if (!p) return;
+    const task = (p.tasks || []).find(t => t.id === id);
+    if (!task) return;
+    task.isMilestone = !!box.checked;
+    persist();
+    // Re-draw the Gantt so the ⭐ appears/disappears immediately
     drawGantt(p);
   });
 
@@ -1367,6 +1422,72 @@
   // Init
   applyPrefs(); renderDashboard();
   showView('dashboard');
+    // --- Export Work Breakdown to Excel ---
+document.addEventListener('click', (e) => {
+  if (e.target.id !== 'exportWBS') return;
+
+  const p = state.projects.find(x => x.id === currentProjectId);
+  if (!p) { alert('Open a project first.'); return; }
+
+  // If user has edited the table but hasn’t hit "Recalculate",
+  // read live cells so the export reflects what's on screen.
+  const liveEdits = (typeof readTableTasks === 'function') ? readTableTasks() : null;
+  const tasks = (liveEdits && liveEdits.length === (p.tasks?.length || 0))
+    ? p.tasks.map((t, i) => ({ ...t, ...liveEdits[i] }))
+    : (p.tasks || []);
+
+  const rows = tasks.map(t => {
+    const start = t.start || '';
+    const end   = t.end   || '';
+    const pct   = Math.max(0, Math.min(100, t.pct || 0));
+    // Simple status for a little ✨
+    let status = 'On Track';
+    if (pct >= 100) status = 'Complete';
+    else if (new Date(end) < new Date()) status = 'Late';
+
+    // Duration in days (at least 1)
+    const durationDays = (start && end)
+      ? Math.max(1, Math.round((new Date(end) - new Date(start)) / 86400000))
+      : '';
+
+    return {
+      'Milestone': t.isMilestone ? 'Yes' : 'No',
+      'Task': t.title || '',
+      'Assignee': t.assignee || '',
+      'Start': start,
+      'End': end,
+      'Duration (days)': durationDays,
+      '% Complete': pct,
+      'Status': status
+    };
+  });
+
+  if (!rows.length) { alert('No tasks to export.'); return; }
+
+  const ws = XLSX.utils.json_to_sheet(rows, {
+    header: ['Milestone','Task','Assignee','Start','End','Duration (days)','% Complete','Status']
+  });
+
+  // Nice column widths so Excel doesn’t squish your brilliance
+  ws['!cols'] = [
+    { wch: 10 },  // Milestone
+    { wch: 36 },  // Task
+    { wch: 20 },  // Assignee
+    { wch: 12 },  // Start
+    { wch: 12 },  // End
+    { wch: 16 },  // Duration (days)
+    { wch: 12 },  // % Complete
+    { wch: 14 }   // Status
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Work Breakdown');
+
+  const safeName = (p.name || 'Project').replace(/[^\w\-]+/g, '_');
+  XLSX.writeFile(wb, `Work_Breakdown_${safeName}.xlsx`);
+});
+
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 </body>
 </html>
