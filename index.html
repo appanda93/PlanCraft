@@ -334,25 +334,54 @@
         </div>
       </section>
 
-      <!-- RAID -->
-      <section id="view-raid" class="section hidden">
-        <div class="card">
-          <h3>Risks</h3>
-          <table>
-            <thead><tr><th>Title</th><th>P</th><th>I</th><th>Exposure</th><th>Owner</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody id="riskTable"></tbody>
-          </table>
-          <button class="btn" id="addRisk">＋ Add Risk</button>
-        </div>
-        <div class="card">
-          <h3>Issues</h3>
-          <table>
-            <thead><tr><th>Title</th><th>Severity</th><th>Owner</th><th>ETA</th><th>Status</th></tr></thead>
-            <tbody id="issueTable"></tbody>
-          </table>
-          <button class="btn" id="addIssue">＋ Add Issue</button>
-        </div>
-      </section>
+<!-- RAID -->
+<section id="view-raid" class="section hidden">
+  <!-- Project header shows current project -->
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex; align-items:center; gap:12px">
+      <div>
+        <div class="muted" style="font-size:12px">RAID for</div>
+        <h3 style="margin:4px 0 0" id="raidProjectName">—</h3>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Risks</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>P</th>
+          <th>I</th>
+          <th>Exposure</th>
+          <th>Owner</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="riskTable"></tbody>
+    </table>
+    <button class="btn" id="addRisk">＋ Add Risk</button>
+  </div>
+
+  <div class="card">
+    <h3>Issues</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Severity</th>
+          <th>Owner</th>
+          <th>ETA</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="issueTable"></tbody>
+    </table>
+    <button class="btn" id="addIssue">＋ Add Issue</button>
+  </div>
+</section>
 
       <!-- STATUS -->
       <section id="view-status" class="section hidden">
@@ -1175,14 +1204,22 @@
     }
   });
 
-  // ---------- RAID view ----------
-  function renderRAID(){
-    const p = state.projects.find(x=>x.id===currentProjectId) || state.projects[0];
-    if(!p){
-      ['riskTable','issueTable'].forEach(id=> qs('#'+id).innerHTML='<tr><td colspan="7" class="muted">No project.</td></tr>');
-      return;
-    }
-    currentProjectId = p.id;
+// ---------- RAID view ----------
+function renderRAID(){
+  const p = state.projects.find(x=> x.id === currentProjectId) || state.projects[0] || null;
+
+  // Update the RAID header title first (even if no project yet)
+  const nameEl = document.getElementById('raidProjectName');
+  if (nameEl) nameEl.textContent = p?.name || '—';
+
+  // If no project, show placeholders and bail
+  if (!p) {
+    const rT = qs('#riskTable'); if (rT) rT.innerHTML = '<tr><td colspan="7" class="muted">No project.</td></tr>';
+    const iT = qs('#issueTable'); if (iT) iT.innerHTML = '<tr><td colspan="5" class="muted">No project.</td></tr>';
+    return;
+  }
+
+  currentProjectId = p.id;
 
     // Risks
     const rT=qs('#riskTable'); rT.innerHTML='';
