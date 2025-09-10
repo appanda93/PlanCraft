@@ -1,22 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Favicon (modern browsers) -->
-  <link rel="icon" type="image/png" sizes="32x32" href="https://raw.githubusercontent.com/appanda93/PlanCraft/main/AppIcon%20180x180.png?v=3">
-  <link rel="icon" type="image/png" sizes="180x180" href="https://raw.githubusercontent.com/appanda93/PlanCraft/main/AppIcon%20180x180.png?v=3">
-
-  <!-- Apple iOS home-screen icon -->
-  <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/appanda93/PlanCraft/main/AppIcon%20180x180.png?v=3">
-
-  <!-- (Nice to have) Browser UI color to match your brand -->
-  <meta name="theme-color" content="#d9a6c1">
-</head>
-
-
-<head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PlanCraft · Sleek PM Planning</title>
+
+  <!-- Favicon / App Icons -->
+  <link rel="icon" type="image/png" sizes="32x32" href="https://raw.githubusercontent.com/appanda93/PlanCraft/main/AppIcon%20180x180.png?v=3">
+  <link rel="icon" type="image/png" sizes="180x180" href="https://raw.githubusercontent.com/appanda93/PlanCraft/main/AppIcon%20180x180.png?v=3">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/appanda93/PlanCraft/main/AppIcon%20180x180.png?v=3">
+  <meta name="theme-color" content="#d9a6c1">
+
   <style>
     :root{
       --bg: #0e1116;            /* dark canvas */
@@ -30,7 +24,7 @@
       --shadow: 0 8px 30px rgba(0,0,0,.35);
       --radius: 14px;
     }
-  
+
     *{box-sizing:border-box}
     html,body{height:100%}
     body{margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text);}
@@ -90,7 +84,45 @@
     .row{display:flex; gap:12px}
     .col{flex:1}
     .hidden{display:none}
-    @media (max-width: 900px){ .app{grid-template-columns: 1fr; grid-template-areas: "header" "main"} aside{display:none} }
+
+    /* --- Responsive: Off-canvas sidebar on mobile --- */
+    @media (max-width: 900px){
+      .app{
+        grid-template-columns: 1fr;
+        grid-template-areas: "header" "main";
+      }
+      /* Off-canvas sidebar */
+      aside{
+        position: fixed;
+        top: 0; bottom: 0; left: 0;
+        width: 280px;
+        background: var(--panel);
+        border-right: 1px solid rgba(255,255,255,.06);
+        transform: translateX(-100%);
+        transition: transform .25s ease;
+        z-index: 1000;
+        display: block;      /* override any display:none */
+        padding-top: 72px;   /* room for header */
+      }
+      body.aside-open aside{ transform: translateX(0); }
+
+      /* Backdrop behind the drawer */
+      .backdrop{
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,.4);
+        opacity: 0; pointer-events: none;
+        transition: opacity .2s ease;
+        z-index: 999;
+      }
+      body.aside-open .backdrop{
+        opacity: 1; pointer-events: auto;
+      }
+
+      /* Show the menu button on mobile */
+      header .menu-btn{ display: inline-flex; }
+    }
+    /* Hidden by default on desktop */
+    header .menu-btn{ display: none; }
 
     /* --- Gantt Upgrades --- */
     .gantt { position:relative; padding-top:42px; } /* room for axis labels */
@@ -143,12 +175,16 @@
     </aside>
 
     <header>
+      <button class="btn ghost menu-btn" id="menuBtn" aria-expanded="false" aria-controls="nav">☰ Menu</button>
       <div class="brand"><div class="logo"></div><div>PlanCraft</div></div>
       <span class="pill" id="motivation">✨ You’ve got this.</span>
       <div class="spacer"></div>
       <button class="btn ghost" id="darkToggle" title="Toggle theme">🌓 Theme</button>
       <button class="btn acc" data-view-jump="intake">＋ New Project</button>
     </header>
+
+    <!-- Backdrop for mobile drawer -->
+    <div class="backdrop" id="backdrop"></div>
 
     <main>
       <!-- DASHBOARD (Active projects only) -->
@@ -426,6 +462,25 @@
     return ticks;
   }
   function fmtLong(d){ return new Date(d).toLocaleDateString(undefined,{weekday:'short', year:'numeric', month:'short', day:'numeric'}); }
+
+  // --- Mobile sidebar (off-canvas) ---
+  const menuBtn  = document.getElementById('menuBtn');
+  const backdrop = document.getElementById('backdrop');
+
+  function toggleAside(open){
+    const isOpen = (open ?? !document.body.classList.contains('aside-open'));
+    document.body.classList.toggle('aside-open', isOpen);
+    if(menuBtn) menuBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  }
+
+  menuBtn?.addEventListener('click', ()=> toggleAside());
+  backdrop?.addEventListener('click', ()=> toggleAside(false));
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') toggleAside(false); });
+  // Close drawer when navigating
+  document.addEventListener('click', (e)=>{
+    const navItem = e.target.closest('aside .nav-item');
+    if(navItem) toggleAside(false);
+  });
 
   // Navigation
   qsa('[data-view]').forEach(item=> item.addEventListener('click',()=> showView(item.dataset.view)) );
