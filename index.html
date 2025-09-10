@@ -369,6 +369,7 @@
           <div class="row" style="margin-top:8px">
             <button class="btn acc" id="autoDraft">✨ Auto-Draft Status</button>
             <button class="btn ghost" id="celebrate">🎉 Celebrate Win</button>
+            <button class="btn" id="exportStatusDoc">⬇️ Export to Word</button>
           </div>
           <textarea id="statusText" rows="12" style="margin-top:10px" placeholder="Draft will appear here…"></textarea>
         </div>
@@ -1486,8 +1487,109 @@ document.addEventListener('click', (e) => {
   const safeName = (p.name || 'Project').replace(/[^\w\-]+/g, '_');
   XLSX.writeFile(wb, `Work_Breakdown_${safeName}.xlsx`);
 });
+// --- Export Status Update to Word (.docx) ---
+document.addEventListener('click', async (e) => {
+  if (e.target.id !== 'exportStatusDoc') return;
+
+  const statusEl = document.getElementById('statusText');
+  const audience = (document.getElementById('audience')?.value || 'exec');
+  const weekOf   = (document.getElementById('weekOf')?.value) || new Date().toISOString().slice(0,10);
+  const status   = (statusEl?.value || '').trim();
+
+  if (!status) { alert('There is no status text to export.'); return; }
+
+  const p = state.projects.find(x => x.id === currentProjectId) || state.projects[0];
+  const projName = p?.name || 'Project';
+
+  // Build a .docx using docx (global from the CDN)
+  const {
+    Document, Packer, Paragraph, HeadingLevel, TextRun, AlignmentType
+  } = docx;
+
+  // Small helper: convert plain text lines to paragraphs (with bullets if a line starts with "• " or "- ")
+  function linesToParagraphs(text){
+    return text.split(/\r?\n/).map(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return new Paragraph({ text: '', spacing: { after: 120 } });
+
+      const isBullet = /^([•\-]\s+)/.test(trimmed);
+      const clean = trimmed.replace(/^([•\-]\s+)/, '');
+
+      return new Paragraph({
+        text: clean,
+        bullet: isBullet ? { level: 0 } : undefined,
+        spacing: { after: 120 }
+      });
+    });
+  }
+
+  const title = new Paragraph({
+    children: [new TextRun({ text: 'Project Status Update', bold: true })],
+    heading: HeadingLevel.HEADING_1,
+    spacing: { after: 200 }
+  });
+
+  const meta = [
+    new Paragraph({
+      children: [
+        new TextRun({ text: 'Project: ', bold: true }),
+        new TextRun({ text: projName })
+      ],
+      spacing: { after: 120 }
+    }),
+    new Paragraph({
+      children: [
+        new TextRun({ text: 'Week Of: ', bold: true }),
+        new TextRun({ text: weekOf })
+      ],
+      spacing: { after: 120 }
+    }),
+    new Paragraph({
+      children: [
+        new TextRun({ text: 'Audience: ', bold: true }),
+        new TextRun({ text: audience === 'exec' ? 'Executive' : 'Team' })
+      ],
+      spacing: { after: 240 }
+    })
+  ];
+
+  const bodyParas = linesToParagraphs(status);
+
+  const doc = new Document({
+    sections: [{
+      properties: {
+        page: { margin: { top: 720, right: 720, bottom: 720, left: 720 } } // 0.5" margins
+      },
+      children: [
+        title,
+        ...meta,
+        ...bodyParas,
+        new Paragraph({
+          children: [new TextRun({ text: 'Generated via PlanCraft', italics: true, size: 20 })],
+          spacing: { before: 240 },
+          alignment: AlignmentType.RIGHT
+        })
+      ]
+    }]
+  });
+
+  const safeName = (projName).replace(/[^\w\-]+/g, '_');
+  const blob = await Packer.toBlob(doc);
+
+  // Trigger download
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Status_Update_${safeName}_${weekOf}.docx`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+});
 
   </script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+
 </body>
 </html>
