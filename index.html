@@ -143,6 +143,12 @@
     .todo-item.done .todo-text { text-decoration: line-through; opacity:.7; }
     .todo-date { width:140px; }
     .todo-actions { display:flex; gap:6px; }
+    #todoFilterHint {
+  white-space: nowrap;   /* keep full date on one line */
+  flex: 0 0 auto;        /* don't shrink */
+  width: max-content;    /* expand just enough */
+  text-align: right;     /* align text neatly */
+}
   </style>
 </head>
 <body>
