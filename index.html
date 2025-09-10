@@ -29,11 +29,13 @@
     html,body{height:100%}
     body{margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; background:var(--bg); color:var(--text);}
     a{color:var(--accent)}
+
     /* Layout */
     .app{display:grid; grid-template-columns: 260px 1fr; grid-template-rows: 64px minmax(0,1fr); grid-template-areas:"aside header" "aside main"; height:100%}
     header{grid-area:header; display:flex; align-items:center; gap:16px; padding:0 20px; background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0)); border-bottom:1px solid rgba(255,255,255,.06)}
     aside{grid-area:aside; padding:18px; border-right:1px solid rgba(255,255,255,.06)}
     main{grid-area:main; padding:22px; overflow:auto}
+
     /* Header */
     .brand{display:flex; align-items:center; gap:12px; font-weight:700; letter-spacing:.3px}
     .logo{width:34px; height:34px; background:radial-gradient(60% 60% at 40% 35%, var(--accent), transparent 60%), radial-gradient(60% 60% at 70% 65%, var(--accent-2), transparent 60%), #1b2030; border-radius:10px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.06), var(--shadow)}
@@ -45,12 +47,14 @@
     .btn.ghost{background:transparent; border-color:rgba(255,255,255,.12)}
     .select, input, textarea{width:100%; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.12); color:var(--text); padding:10px 12px; border-radius:10px; outline:none}
     input:focus, textarea:focus, select:focus{box-shadow:var(--ring)}
+
     /* Sidebar */
     nav{display:flex; flex-direction:column; gap:6px}
     .nav-item{display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; color:var(--muted); cursor:pointer}
     .nav-item:hover{background:rgba(255,255,255,.04)}
     .nav-item.active{background:linear-gradient(180deg, rgba(217,166,193,.18), rgba(217,166,193,.06)); color:var(--text); border:1px solid rgba(217,166,193,.30)}
     .aside-card{background:var(--panel); border:1px solid rgba(255,255,255,.06); border-radius:var(--radius); padding:12px; box-shadow:var(--shadow); margin-top:16px}
+
     /* Cards & sections */
     .section{display:flex; flex-direction:column; gap:14px}
     .grid{display:grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap:16px}
@@ -59,13 +63,16 @@
     .muted{color:var(--muted)}
     .kpi{display:flex; gap:14px}
     .kpi .bubble{padding:8px 10px; border-radius:10px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); font-size:12px}
+
     /* Progress ring */
     .ring{--p:65; width:56px; height:56px; border-radius:50%; background:conic-gradient(var(--accent) calc(var(--p)*1%), rgba(255,255,255,.08) 0); display:grid; place-items:center}
     .ring span{font-size:12px}
+
     /* Tables */
     table{width:100%; border-collapse:separate; border-spacing:0 8px}
     th{color:var(--muted); font-weight:600; text-align:left; font-size:12px}
     td{background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); padding:10px; border-radius:8px; vertical-align:top}
+
     /* Gantt */
     .gantt{position:relative; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:16px; overflow:auto}
     .bar{position:relative; height:28px; border-radius:8px; background:linear-gradient(90deg, var(--accent-2), var(--accent)); display:flex; align-items:center; padding-left:8px; font-size:12px; color:#0e1116; overflow:hidden}
@@ -74,16 +81,22 @@
     .rag{display:inline-flex; align-items:center; gap:6px; padding:6px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.12)}
     .dot{width:8px; height:8px; border-radius:50%}
     .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)}
+
     /* Modal */
     .modal{position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; padding:20px}
     .modal .sheet{max-width:760px; width:100%; background:var(--panel); border:1px solid rgba(255,255,255,.08); border-radius:16px; box-shadow:var(--shadow); padding:18px}
+
     /* Confetti-ish sparkles */
     .sparkles{position:fixed; pointer-events:none; inset:0; display:none}
     .sparkles i{position:absolute; width:6px; height:6px; background:currentColor; transform:translate(-50%,-50%); border-radius:2px; opacity:.9}
+
     /* Utilities */
     .row{display:flex; gap:12px}
     .col{flex:1}
     .hidden{display:none}
+
+    /* === IMPORTANT: Default desktop rule (placed BEFORE mobile media query) === */
+    header .menu-btn{ display: none; }
 
     /* --- Responsive: Off-canvas sidebar on mobile --- */
     @media (max-width: 900px){
@@ -119,10 +132,8 @@
       }
 
       /* Show the menu button on mobile */
-      header .menu-btn{ display: !important; }
+      header .menu-btn{ display: inline-flex; }
     }
-    /* Hidden by default on desktop */
-    header .menu-btn{ display: none; }
 
     /* --- Gantt Upgrades --- */
     .gantt { position:relative; padding-top:42px; } /* room for axis labels */
