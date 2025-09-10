@@ -448,6 +448,10 @@
           <h3>Data</h3>
           <div class="row"><button class="btn ghost" id="exportData">Export JSON</button><button class="btn" id="importData">Import JSON</button><input id="importFile" type="file" accept="application/json" class="hidden"/></div>
         </div>
+        <div class="row" style="margin-top:10px">
+  <button class="btn" id="connectRepo">📂 Connect Project File</button>
+  <button class="btn ghost" id="saveRepo">💾 Save Now</button>
+</div>
       </section>
     </main>
   </div>
@@ -552,7 +556,7 @@
     if(navItem) toggleAside(false);
   });
 
-  // Navigation
+      // Navigation
   qsa('[data-view]').forEach(item=> item.addEventListener('click',()=> showView(item.dataset.view)) );
   qsa('[data-view-jump]').forEach(btn=> btn.addEventListener('click',()=> showView(btn.dataset.viewJump)) );
   function showView(id){
@@ -880,7 +884,10 @@
     return state.projects.find(x=>x.id===p.id);
   }
 
-  function persist(){ localStorage.setItem('plancraft', JSON.stringify(state)); }
+  function persist(){
+  localStorage.setItem('plancraft', JSON.stringify(state));
+  if (repoHandle) saveProjectRepo(); // auto-save if connected
+}
 
   // Draft Plan generator
   function generateDraftTasks(p){
@@ -1483,7 +1490,76 @@ function renderRAID(){
     const r = new FileReader(); r.onload = ()=>{ try{ const obj=JSON.parse(r.result); Object.assign(state, obj); persist(); applyPrefs(); renderDashboard(); alert('Imported.'); } catch(e){ alert('Invalid JSON.'); } };
     r.readAsText(f);
   });
+// --- File System Access "Project Repository" ---
+let repoHandle = null;
 
+// Connect to a file on the user's computer
+async function connectProjectRepo(){
+  if (!window.showSaveFilePicker) {
+    alert('Your browser does not support this feature. Use Chrome/Edge desktop, or keep using Export/Import JSON.');
+    return;
+  }
+  try {
+    repoHandle = await window.showSaveFilePicker({
+      suggestedName: 'plancraft_projects.json',
+      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }]
+    });
+    await saveProjectRepo(); // save immediately after connecting
+    alert('Connected and saved your projects to the chosen file.');
+  } catch (e) {
+    if (e.name !== 'AbortError') console.error('connectProjectRepo error', e);
+  }
+}
+
+// Save current state to the file
+async function saveProjectRepo(){
+  if (!repoHandle) {
+    alert('No project file connected yet. Click “Connect Project File” first.');
+    return;
+  }
+  try {
+    const writable = await repoHandle.createWritable();
+    const data = JSON.stringify(
+      { projects: state.projects, prefs: state.prefs, todos: state.todos },
+      null, 2
+    );
+    await writable.write(new Blob([data], { type: 'application/json' }));
+    await writable.close();
+  } catch (e) {
+    console.error('saveProjectRepo error', e);
+    alert('Could not save to the connected file.');
+  }
+}
+
+// Optional: load from the file if needed
+async function loadProjectRepo(){
+  if (!repoHandle) {
+    alert('No project file connected yet.');
+    return;
+  }
+  try {
+    const file = await repoHandle.getFile();
+    const text = await file.text();
+    const obj = JSON.parse(text);
+    state.projects = Array.isArray(obj.projects) ? obj.projects : [];
+    state.prefs = obj.prefs || state.prefs;
+    state.todos = Array.isArray(obj.todos) ? obj.todos : [];
+    persist();
+    applyPrefs();
+    renderDashboard();
+    alert('Loaded projects from file.');
+  } catch (e) {
+    console.error('loadProjectRepo error', e);
+    alert('Could not load from the connected file.');
+  }
+}
+
+// Hook up buttons
+document.addEventListener('click', async (e)=>{
+  if (e.target.id === 'connectRepo') { await connectProjectRepo(); }
+  if (e.target.id === 'saveRepo')    { await saveProjectRepo(); }
+});
+    
   // Init
   applyPrefs(); renderDashboard();
   showView('dashboard');
