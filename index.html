@@ -143,11 +143,12 @@
     .todo-item.done .todo-text { text-decoration: line-through; opacity:.7; }
     .todo-date { width:140px; }
     .todo-actions { display:flex; gap:6px; }
-    #todoFilterHint {
-  white-space: nowrap;   /* keep full date on one line */
-  flex: 0 0 auto;        /* don't shrink */
-  width: max-content;    /* expand just enough */
-  text-align: right;     /* align text neatly */
+#todoFilterHint{
+  white-space: nowrap;   /* keep on one line */
+  flex-shrink: 0;        /* never shrink */
+  min-width: 17ch;       /* room for "Showing 99/99/9999" */
+  margin-left: auto;     /* push to the right */
+  text-align: right;     /* tidy alignment */
 }
   </style>
 </head>
@@ -223,7 +224,7 @@
               <button class="btn" id="todoAdd">＋ Add</button>
             </div>
             <!-- NEW: Day filter -->
-            <div class="row" style="margin-top:8px; align-items:flex-end">
+            <div class="row" style="margin-top:8px; align-items:flex-end; flex-wrap:wrap">
               <div class="col" style="max-width:180px">
                 <label>View Date<input type="date" id="todoFilterDate"/></label>
               </div>
