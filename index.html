@@ -839,13 +839,13 @@
       isMilestone: false
     });
     const tasks=[
-      mk('Initiation & Charter', 0, bucket),
+      mk('Kickoff', 0, bucket),
       mk('Requirements & Scope Finalization', bucket, bucket),
       mk('Design & Solution Blueprint', bucket*2, bucket),
       mk('Build & Configuration', bucket*3, Math.ceil(bucket*1.2)),
       mk('Testing & UAT', bucket*4, Math.ceil(bucket*0.8)),
-      mk('Cutover Planning', bucket*4, Math.ceil(bucket*0.5)),
-      mk('Go-Live & Hypercare', Math.max(bucket*5-5, bucket*4), 5)
+      mk('Training', bucket*4, Math.ceil(bucket*0.5)),
+      mk('Go-Live', Math.max(bucket*5-5, bucket*4), 5)
     ];
     const scope = (p.scope||'').toLowerCase();
     if(scope.includes('integration')) tasks.splice(3,0, mk('Integration Mapping & Interfaces', bucket*2, Math.ceil(bucket*0.8)));
