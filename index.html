@@ -336,6 +336,14 @@
 
       <!-- RAID -->
       <section id="view-raid" class="section hidden">
+        <div class="card" style="margin-bottom:16px">
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px">
+    <div>
+      <div class="muted" style="font-size:12px">RAID for</div>
+      <h3 style="margin:4px 0 0" id="raidProjectName">—</h3>
+    </div>
+  </div>
+</div>
         <div class="card">
           <h3>Risks</h3>
           <table>
@@ -1183,7 +1191,7 @@
       return;
     }
     currentProjectId = p.id;
-
+qs('#raidProjectName').textContent = p.name || 'Untitled Project';
     // Risks
     const rT=qs('#riskTable'); rT.innerHTML='';
     p.risks ||= [];
