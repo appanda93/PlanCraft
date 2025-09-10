@@ -87,6 +87,21 @@
     .col{flex:1}
     .hidden{display:none}
 
+    function resetIntakeForm(){
+  const today = fmt(new Date());
+  const plus30 = fmt(new Date(Date.now() + 86400000*30));
+  ['#pName','#pSponsor','#pPM','#pScope','#pStake'].forEach(sel=>{
+    const el = qs(sel); if(el) el.value = '';
+  });
+  if(qs('#pStart')) qs('#pStart').value = today;
+  if(qs('#pEnd'))   qs('#pEnd').value   = plus30;
+
+  // discourage browser autofill
+  ['#pName','#pSponsor','#pPM','#pScope','#pStake','#pStart','#pEnd'].forEach(sel=>{
+    qs(sel)?.setAttribute('autocomplete','off');
+  });
+}
+
     /* --- Responsive: Off-canvas sidebar on mobile --- */
     @media (max-width: 900px){
       .app{
@@ -540,6 +555,7 @@
     if(id==='archived') renderArchived();
     if(id==='plan') renderPlan();
     if(id==='raid') renderRAID();
+    if(id==='intake') resetIntakeForm(); 
   }
 
   // Apply prefs
@@ -828,6 +844,7 @@
   qs('#btnSave').addEventListener('click',()=>{
     const p = collectIntake(); if(!p) return;
     currentProjectId = upsertProject(p).id; persist(); renderDashboard(); alert('Project saved.');
+    resetIntakeForm();
   });
 
   function collectIntake(){
