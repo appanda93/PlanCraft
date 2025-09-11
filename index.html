@@ -570,20 +570,29 @@
     if(navItem) toggleAside(false);
   });
 
-      // Navigation
-  qsa('[data-view]').forEach(item=> item.addEventListener('click',()=> showView(item.dataset.view)) );
-  qsa('[data-view-jump]').forEach(btn=> btn.addEventListener('click',()=> showView(btn.dataset.viewJump)) );
-  function showView(id){
-    qsa('.nav-item').forEach(n=> n.classList.toggle('active', n.dataset.view===id));
-    qsa('main > section').forEach(s=> s.classList.toggle('hidden', s.id!==`view-${id}`));
-    if(id==='dashboard') renderDashboard();
-    if(id==='archived') renderArchived();
-    if(id==='plan') renderPlan();
-    if(id==='raid') renderRAID();
-    if(id==='intake') resetIntakeForm();
-    if(id==='status') renderStatus();
-    function renderStatus();
-  }
+// Navigation
+qsa('[data-view]').forEach(item =>
+  item.addEventListener('click', () => showView(item.dataset.view))
+);
+qsa('[data-view-jump]').forEach(btn =>
+  btn.addEventListener('click', () => showView(btn.dataset.viewJump))
+);
+
+function showView(id){
+  qsa('.nav-item').forEach(n =>
+    n.classList.toggle('active', n.dataset.view === id)
+  );
+  qsa('main > section').forEach(s =>
+    s.classList.toggle('hidden', s.id !== `view-${id}`)
+  );
+  if(id === 'dashboard') renderDashboard();
+  if(id === 'archived')  renderArchived();
+  if(id === 'plan')      renderPlan();
+  if(id === 'raid')      renderRAID();
+  if(id === 'intake')    resetIntakeForm();
+  if(id === 'status')    renderStatus();   // ✅ just call it
+} // ✅ close showView — nothing else inside!
+
 // (Optional) helper so Status always has a project
 function getCurrentProject(){
   let p = state.projects.find(x => x.id === currentProjectId);
@@ -596,7 +605,7 @@ function getCurrentProject(){
 }
 
 function renderStatus(){
-  const p = getCurrentProject();  // or use your original lookup line
+  const p = getCurrentProject();  // fallback-safe
   console.log('renderStatus project:', p);
   const nameEl = document.getElementById('statusProjectName');
   if (nameEl) nameEl.textContent = p?.name || '—';
