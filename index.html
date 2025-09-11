@@ -408,6 +408,13 @@
       <!-- STATUS -->
       <section id="view-status" class="section hidden">
         <div class="card">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px">
+      <div class="muted" style="font-size:12px">Status for</div>
+      <h3 id="statusProjectName" style="margin:0">—</h3>
+    </div>
+    <h3>Weekly Status</h3>
+    ...
+
           <h3>Weekly Status</h3>
           <div class="row">
             <div class="col">
@@ -574,7 +581,8 @@
     if(id==='archived') renderArchived();
     if(id==='plan') renderPlan();
     if(id==='raid') renderRAID();
-    if(id==='intake') resetIntakeForm(); 
+    if(id==='intake') resetIntakeForm();
+    if(id==='status') renderStatus();
   }
 
   // Apply prefs
@@ -1429,6 +1437,7 @@ function renderRAID(){
       : notesAll.sort((a,b)=> new Date(b.date)-new Date(a.date)).slice(0,3);
 
     const lines = [];
+    lines.push(`📌 Project: ${p.name || 'Untitled Project'}`); 
     lines.push(`${tone} Week of ${week}. Overall status: ${rag.toUpperCase()}.`);
     lines.push(`Progress: ${done}/${total} tasks complete (${Math.round(done/total*100)}%). ${overdue} overdue.`);
     if(riskOpen>0) lines.push(`Risks: ${riskOpen} open; top exposures under mitigation.`);
