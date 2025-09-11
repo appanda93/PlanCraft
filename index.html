@@ -605,7 +605,7 @@
     grid.innerHTML = '';
     const list = state.projects.filter(p=> !p.archived);
     if(list.length===0){
-      grid.innerHTML = `<div class="card" style="grid-column:1/-1"><h3>Welcome</h3><p class="muted">No active projects. Create one in <b>New Project</b> or check <b>Archived Projects</b>.</p></div>`;
+      grid.innerHTML = `<div class="card" style="grid-column:1/-1"><h3>Welcome</h3><p class="muted">No active projects. Create one in <b>New Project</b> or import in <b>Settings & Save</b>.</p></div>`;
     } else {
       list.forEach(p=>{
         const complete = Math.round((p.tasks?.reduce((a,t)=>a+(t.pct||0),0)/(p.tasks?.length||1))||0);
