@@ -1562,45 +1562,89 @@ async function ensureRepoHandle(){
   }
 }
 
-async function loadProjectRepo(){
-  // Ensure we have a file handle; if not, prompt the user to pick one
-  const ok = await ensureRepoHandle();
-  if (!ok) return;
-
-  try {
-    const file = await repoHandle.getFile();
-    const text = await file.text();
-
-    let obj;
+// Simple one-off loader: user picks a JSON file and we populate state.
+// No persistent handle needed; works like "Upload and populate".
+async function loadFromSavedJson(){
+  // Prefer modern picker (Chromium desktop over https/localhost)
+  if (window.showOpenFilePicker) {
     try {
-      obj = JSON.parse(text);
-    } catch (parseErr) {
-      alert('That file is not valid JSON.');
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
+        excludeAcceptAllOption: false,
+        multiple: false
+      });
+      const file = await handle.getFile();
+      const text = await file.text();
+      const obj  = JSON.parse(text);
+
+      // Replace app state from file
+      state.projects = Array.isArray(obj.projects) ? obj.projects : [];
+      state.prefs    = obj.prefs || state.prefs;
+      state.todos    = Array.isArray(obj.todos) ? obj.todos : [];
+
+      persist();
+      if (typeof applyPrefs === 'function') applyPrefs();
+      if (typeof renderDashboard === 'function') renderDashboard();
+
+      alert('Projects loaded.');
       return;
+    } catch (e) {
+      if (e.name !== 'AbortError') console.error('loadFromSavedJson error', e);
+      return; // user canceled or an error occurred
     }
-
-    // Replace app state from file (adjust keys as needed)
-    state.projects = Array.isArray(obj.projects) ? obj.projects : [];
-    state.prefs    = obj.prefs || state.prefs;
-    state.todos    = Array.isArray(obj.todos) ? obj.todos : [];
-
-    // Persist locally and refresh UI
-    persist();        // if you added auto-save, this will also write back to the file
-    applyPrefs?.();   // only if this exists in your code
-    renderDashboard?.();
-
-    alert('Loaded projects from file.');
-  } catch (e) {
-    console.error('loadProjectRepo error', e);
-    alert('Could not load from the connected file.');
   }
-}
+
+  // Fallback for Safari/Firefox: use your existing hidden input#importFile
+  const input = document.getElementById('importFile');
+  if (!input) {
+    alert('Your browser does not support the modern file picker and no fallback input was found.');
+    return;
+  }
+
+  const onChange = async (ev) => {
+    input.removeEventListener('change', onChange);
+    const file = ev.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const obj  = JSON.parse(text);
+
+      state.projects = Array.isArray(obj.projects) ? obj.projects : [];
+      state.prefs    = obj.prefs || state.prefs;
+      state.todos    = Array.isArray(obj.todos) ? obj.todos : [];
+
+      persist();
+      if (typeof applyPrefs === 'function') applyPrefs();
+      if (typeof renderDashboard === 'function') renderDashboard();
+
+      alert('Projects loaded.');
+    } catch (e) {
+      console.error('fallback load error', e);
+      alert('Could not read that file. Make sure it is a valid PlanCraft JSON.');
+    } finally {
+      input.value = ''; // reset so picking the same file again retriggers change
+    }
+  };
 
 // Hook up buttons
 document.addEventListener('click', async (e)=>{
-  if (e.target.id === 'connectRepo') { await connectProjectRepo(); }
-  if (e.target.id === 'saveRepo')    { await saveProjectRepo(); }
+  const id = e.target?.id;
+  if (!id) return;
+
+  if (id === 'connectRepo') { await connectProjectRepo?.(); }
+  if (id === 'saveRepo')    { await saveProjectRepo?.(); }
+
+  if (id === 'loadRepo') {
+    e.preventDefault();
+    const btn = e.target;
+    const old = btn.textContent;
+    btn.disabled = true; btn.textContent = 'Loading…';
+    await loadFromSavedJson();
+    btn.textContent = old; btn.disabled = false;
+  }
 });
+}
     
   // Init
   applyPrefs(); renderDashboard();
