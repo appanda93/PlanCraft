@@ -507,8 +507,6 @@
   <div class="sparkles" id="sparkles"></div>
 
   <script>
-  let repoHandle = null; // must be top-level so all functions can use it
-
   // --- Simple state management ---
   const state = JSON.parse(localStorage.getItem('plancraft')||'{}');
   state.projects ||= [];
@@ -1563,31 +1561,9 @@ async function ensureRepoHandle(){
     return false;
   }
 }
-async function ensureRepoHandle(){
-  // If already connected in this session, we're set
-  if (typeof repoHandle !== 'undefined' && repoHandle) return true;
-
-  // If no handle yet, ask user to pick an existing JSON file
-  if (!window.showOpenFilePicker) {
-    alert('Your browser does not support opening files this way. Use Chrome/Edge desktop, or use Import JSON.');
-    return false;
-  }
-  try {
-    const [handle] = await window.showOpenFilePicker({
-      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
-      excludeAcceptAllOption: false,
-      multiple: false
-    });
-    repoHandle = handle;
-    return true;
-  } catch (e) {
-    if (e.name !== 'AbortError') console.error('ensureRepoHandle error', e);
-    return false;
-  }
-}
 
 async function loadProjectRepo(){
-  // Ensure we have a file handle; prompt if not connected yet
+  // Ensure we have a file handle; if not, prompt the user to pick one
   const ok = await ensureRepoHandle();
   if (!ok) return;
 
@@ -1602,23 +1578,6 @@ async function loadProjectRepo(){
       alert('That file is not valid JSON.');
       return;
     }
-
-    // Replace app state from file (adjust keys if you add more later)
-    state.projects = Array.isArray(obj.projects) ? obj.projects : [];
-    state.prefs    = obj.prefs || state.prefs;
-    state.todos    = Array.isArray(obj.todos) ? obj.todos : [];
-
-    // Persist locally and refresh UI
-    persist();          // if you added autosave, this will also write back to the file
-    if (typeof applyPrefs === 'function') applyPrefs();
-    if (typeof renderDashboard === 'function') renderDashboard();
-
-    alert('Loaded projects from file.');
-  } catch (e) {
-    console.error('loadProjectRepo error', e);
-    alert('Could not load from the connected file.');
-  }
-}
 
     // Replace app state from file (adjust keys as needed)
     state.projects = Array.isArray(obj.projects) ? obj.projects : [];
@@ -1641,27 +1600,6 @@ async function loadProjectRepo(){
 document.addEventListener('click', async (e)=>{
   if (e.target.id === 'connectRepo') { await connectProjectRepo(); }
   if (e.target.id === 'saveRepo')    { await saveProjectRepo(); }
-});
-document.addEventListener('click', async (e) => {
-  const id = e.target?.id;
-  if (!id) return;
-
-  if (id === 'connectRepo') {
-    e.preventDefault();
-    await connectProjectRepo?.();
-  }
-  if (id === 'saveRepo') {
-    e.preventDefault();
-    await saveProjectRepo?.();
-  }
-  if (id === 'loadRepo') {
-    e.preventDefault();
-    const btn = e.target;
-    const old = btn.textContent;
-    btn.disabled = true; btn.textContent = 'Loading…';
-    await loadProjectRepo?.();
-    btn.textContent = old; btn.disabled = false;
-  }
 });
     
   // Init
