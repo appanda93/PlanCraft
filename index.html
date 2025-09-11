@@ -584,9 +584,20 @@
     if(id==='status') renderStatus();
     function renderStatus();
   }
+// (Optional) helper so Status always has a project
+function getCurrentProject(){
+  let p = state.projects.find(x => x.id === currentProjectId);
+  if(!p && state.projects?.length){
+    currentProjectId = state.projects[0].id;
+    persist();
+    p = state.projects[0];
+  }
+  return p || null;
+}
+
 function renderStatus(){
-  const p = state.projects.find(x=>x.id===currentProjectId) || state.projects[0] || null;
-  console.log("renderStatus project:", p);  // 👈 debug line
+  const p = getCurrentProject();  // or use your original lookup line
+  console.log('renderStatus project:', p);
   const nameEl = document.getElementById('statusProjectName');
   if (nameEl) nameEl.textContent = p?.name || '—';
 }
