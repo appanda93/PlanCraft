@@ -582,9 +582,16 @@
     if(id==='raid') renderRAID();
     if(id==='intake') resetIntakeForm();
     if(id==='status') renderStatus();
+    function renderStatus();
   }
+function renderStatus(){
+  const p = state.projects.find(x=>x.id===currentProjectId) || state.projects[0] || null;
+  console.log("renderStatus project:", p);  // 👈 debug line
+  const nameEl = document.getElementById('statusProjectName');
+  if (nameEl) nameEl.textContent = p?.name || '—';
+}
 
-  // Apply prefs
+    // Apply prefs
   function applyPrefs(){
     document.documentElement.style.setProperty('--accent', state.prefs.accent);
     qs('#motivation').textContent = state.prefs.motivation;
