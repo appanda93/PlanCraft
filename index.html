@@ -452,10 +452,6 @@
   <button class="btn" id="connectRepo">📂 Download Current Projects</button>
   <button class="btn ghost" id="saveRepo">💾 Save Now</button>
 </div>
-        <div class="row" style="margin-top:10px">
-  <button class="btn" id="loadRepo">📥 Load from Project File</button>
-</div>
-
       </section>
     </main>
   </div>
@@ -1535,60 +1531,22 @@ async function saveProjectRepo(){
   }
 }
 
-// Optional: load from the file if needed (now with auto-prompt if not connected)
-async function ensureRepoHandle(){
-  // If already connected in this session, we're good
-  if (typeof repoHandle !== 'undefined' && repoHandle) return true;
-
-  // Browser support check
-  if (!window.showOpenFilePicker) {
-    alert('Your browser does not support opening files this way. Use Chrome/Edge desktop, or use Import JSON.');
-    return false;
-  }
-
-  // Ask the user to choose the existing project file
-  try {
-    const [handle] = await window.showOpenFilePicker({
-      types: [{ description: 'JSON', accept: { 'application/json': ['.json'] } }],
-      excludeAcceptAllOption: false,
-      multiple: false
-    });
-    // Save to the same global variable your other code uses
-    repoHandle = handle;
-    return true;
-  } catch (e) {
-    if (e.name !== 'AbortError') console.error('ensureRepoHandle error', e);
-    return false;
-  }
-}
-
+// Optional: load from the file if needed
 async function loadProjectRepo(){
-  // Ensure we have a file handle; if not, prompt the user to pick one
-  const ok = await ensureRepoHandle();
-  if (!ok) return;
-
+  if (!repoHandle) {
+    alert('No project file connected yet.');
+    return;
+  }
   try {
     const file = await repoHandle.getFile();
     const text = await file.text();
-
-    let obj;
-    try {
-      obj = JSON.parse(text);
-    } catch (parseErr) {
-      alert('That file is not valid JSON.');
-      return;
-    }
-
-    // Replace app state from file (adjust keys as needed)
+    const obj = JSON.parse(text);
     state.projects = Array.isArray(obj.projects) ? obj.projects : [];
-    state.prefs    = obj.prefs || state.prefs;
-    state.todos    = Array.isArray(obj.todos) ? obj.todos : [];
-
-    // Persist locally and refresh UI
-    persist();        // if you added auto-save, this will also write back to the file
-    applyPrefs?.();   // only if this exists in your code
-    renderDashboard?.();
-
+    state.prefs = obj.prefs || state.prefs;
+    state.todos = Array.isArray(obj.todos) ? obj.todos : [];
+    persist();
+    applyPrefs();
+    renderDashboard();
     alert('Loaded projects from file.');
   } catch (e) {
     console.error('loadProjectRepo error', e);
