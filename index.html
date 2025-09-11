@@ -921,8 +921,8 @@ function renderStatus(){
 
   function upsertProject(p){
     const i = state.projects.findIndex(x=>x.id===p.id);
-    if(i>=0) state.projects[i]= {...state.projects[i], ...p};
-    else state.projects.push(p);
+    if (i >= 0) state.projects[i] = { ...state.projects[i], ...p };
+else state.projects.push(p);
     return state.projects.find(x=>x.id===p.id);
   }
 
@@ -1019,7 +1019,7 @@ function renderStatus(){
       nT.appendChild(tr);
       return;
     }
-    const sorted = [...p.notes].sort((a,b)=> new Date(b.date) - new Date(a.date));
+    const sorted = [...p.notes].sort((a,b) => new Date(b.date) - new Date(a.date));
     sorted.forEach(n=>{
       const tr = document.createElement('tr');
       tr.dataset.id = n.id;
@@ -1165,7 +1165,7 @@ function renderStatus(){
       p.tasks = p.tasks.map(t=>{
         const ns = fmt(new Date(new Date(t.start).getTime() + deltaDays*86400000));
         const ne = fmt(new Date(new Date(t.end).getTime()   + deltaDays*86400000));
-        return {...t, start: ns, end: ne};
+      return { ...t, start: ns, end: ne }; 
         });
     }
     persist();
@@ -1201,7 +1201,7 @@ function renderStatus(){
   qs('#recalc').addEventListener('click',()=>{
     const p = state.projects.find(x=>x.id===currentProjectId); if(!p) return;
     const edited = readTableTasks();
-    p.tasks = edited.map((t,i)=> ({...p.tasks[i], ...t}));
+    p.tasks = edited.map((t, i) => ({ ...p.tasks[i], ...t }));
     persist();
     drawGantt(p);
   });
